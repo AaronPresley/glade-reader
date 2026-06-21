@@ -9,8 +9,8 @@ type PageModule = {
 
 createInertiaApp({
     resolve: (name) => {
-        const pages = import.meta.glob<PageModule>('./Pages/**/*.tsx', { eager: true });
-        const page = pages[`./Pages/${name}.tsx`];
+        const pages = import.meta.glob<PageModule>('./pages/**/*.tsx', { eager: true });
+        const page = pages[`./pages/${name}.tsx`];
 
         if (!page) {
             throw new Error(`Page not found: ${name}`);
