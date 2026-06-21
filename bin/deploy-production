@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+APP_ENV="${APP_ENV:-local}"
+
+cd "${PROJECT_ROOT}"
+
+run_artisan() {
+    echo "+ php artisan $*"
+    php artisan "$@"
+}
+
+echo "Running deployment tasks for APP_ENV=${APP_ENV}"
+
+if [[ "${APP_ENV}" == "production" ]]; then
+    run_artisan migrate --force
+    run_artisan config:cache
+    run_artisan route:cache
+    run_artisan view:cache
+    run_artisan event:cache
+    run_artisan optimize
+else
+    run_artisan migrate
+    run_artisan config:clear
+    run_artisan route:clear
+    run_artisan view:clear
+    run_artisan event:clear
+fi
+
+run_artisan about

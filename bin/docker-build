@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+REPOSITORY="aaronpresley/glade-reader"
+WEB_REPOSITORY="${REPOSITORY}-web"
+CLI_REPOSITORY="${REPOSITORY}-cli"
+
+if [[ "$#" -ne 0 ]]; then
+    echo "Usage: bin/docker-build" >&2
+    exit 1
+fi
+
+read -r -p "Version/tag: " VERSION
+
+if [[ -z "${VERSION}" ]]; then
+    echo "Version/tag cannot be empty." >&2
+    exit 1
+fi
+
+if [[ ! "${VERSION}" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+    echo "Version/tag must be a valid Docker tag: start with a letter, digit, or underscore; use only letters, digits, underscores, periods, and dashes; max 128 characters." >&2
+    exit 1
+fi
+
+cd "${PROJECT_ROOT}"
+
+if ! docker info >/dev/null 2>&1; then
+    echo "Docker is not running or is not accessible." >&2
+    exit 1
+fi
+
+WEB_IMAGE="${WEB_REPOSITORY}:${VERSION}"
+WEB_LATEST_IMAGE="${WEB_REPOSITORY}:latest"
+CLI_IMAGE="${CLI_REPOSITORY}:${VERSION}"
+CLI_LATEST_IMAGE="${CLI_REPOSITORY}:latest"
+
+echo "Building ${WEB_IMAGE} from Docker target production"
+docker build --target production -t "${WEB_IMAGE}" -t "${WEB_LATEST_IMAGE}" .
+
+echo "Building ${CLI_IMAGE} from Docker target production-cli"
+docker build --target production-cli -t "${CLI_IMAGE}" -t "${CLI_LATEST_IMAGE}" .
+
+echo "Pushing ${WEB_IMAGE} and ${WEB_LATEST_IMAGE}"
+echo "This push requires Docker Hub auth for aaronpresley and existing public Docker Hub repositories: ${WEB_REPOSITORY} and ${CLI_REPOSITORY}"
+if ! docker push "${WEB_IMAGE}"; then
+    echo "Push failed for ${WEB_IMAGE}." >&2
+    echo "Likely causes: Docker Hub is not logged in as aaronpresley, the account lacks push access, or the public Docker Hub repository ${WEB_REPOSITORY} does not exist." >&2
+    echo "Remediation: log into Docker Hub as aaronpresley and ensure the public repository ${WEB_REPOSITORY} exists. This script does not run docker login or change Docker auth." >&2
+    exit 1
+fi
+if ! docker push "${WEB_LATEST_IMAGE}"; then
+    echo "Push failed for ${WEB_LATEST_IMAGE}." >&2
+    echo "Likely causes: Docker Hub is not logged in as aaronpresley, the account lacks push access, or the public Docker Hub repository ${WEB_REPOSITORY} does not exist." >&2
+    echo "Remediation: log into Docker Hub as aaronpresley and ensure the public repository ${WEB_REPOSITORY} exists. This script does not run docker login or change Docker auth." >&2
+    exit 1
+fi
+
+echo "Pushing ${CLI_IMAGE} and ${CLI_LATEST_IMAGE}"
+if ! docker push "${CLI_IMAGE}"; then
+    echo "Push failed for ${CLI_IMAGE}." >&2
+    echo "Likely causes: Docker Hub is not logged in as aaronpresley, the account lacks push access, or the public Docker Hub repository ${CLI_REPOSITORY} does not exist." >&2
+    echo "Remediation: log into Docker Hub as aaronpresley and ensure the public repository ${CLI_REPOSITORY} exists. This script does not run docker login or change Docker auth." >&2
+    exit 1
+fi
+if ! docker push "${CLI_LATEST_IMAGE}"; then
+    echo "Push failed for ${CLI_LATEST_IMAGE}." >&2
+    echo "Likely causes: Docker Hub is not logged in as aaronpresley, the account lacks push access, or the public Docker Hub repository ${CLI_REPOSITORY} does not exist." >&2
+    echo "Remediation: log into Docker Hub as aaronpresley and ensure the public repository ${CLI_REPOSITORY} exists. This script does not run docker login or change Docker auth." >&2
+    exit 1
+fi
+
+echo "Published ${WEB_IMAGE}, ${WEB_LATEST_IMAGE}, ${CLI_IMAGE}, and ${CLI_LATEST_IMAGE}"

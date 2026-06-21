@@ -1,0 +1,95 @@
+services:
+  app:
+    build:
+      context: .
+      target: base-web
+    volumes:
+      - .:/var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      SSL_MODE: "off"
+      PHP_OPCACHE_ENABLE: "0"
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "1"
+      LOG_LEVEL: debug
+      LOG_OUTPUT_LEVEL: warn
+    working_dir: /var/www/html
+    ports:
+      - "80:8080"
+    depends_on:
+      node:
+        condition: service_started
+      pgsql:
+        condition: service_healthy
+
+  queue:
+    build:
+      context: .
+      target: base-cli
+    volumes:
+      - .:/var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      PHP_OPCACHE_ENABLE: "0"
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "1"
+      LOG_LEVEL: debug
+      LOG_OUTPUT_LEVEL: warn
+    working_dir: /var/www/html
+    command: php artisan queue:listen --tries=3 --timeout=0
+    restart: unless-stopped
+    depends_on:
+      pgsql:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: .
+      target: base-cli
+    volumes:
+      - .:/var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      PHP_OPCACHE_ENABLE: "0"
+      PHP_OPCACHE_VALIDATE_TIMESTAMPS: "1"
+      LOG_LEVEL: debug
+      LOG_OUTPUT_LEVEL: warn
+    working_dir: /var/www/html
+    command: php artisan schedule:work
+    depends_on:
+      pgsql:
+        condition: service_healthy
+
+  node:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+
+    # Normal local testing
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+    # Uncomment when testing contentful OAuth flow
+    # command: sh -c "npm install && npm run build"
+    ports:
+      - "5173:5173"
+
+  pgsql:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgsql_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgsql_data:
