@@ -14,39 +14,44 @@ Use the `latest` tags below if you want Lighthouse to auto-deploy each new publi
 Create a new Dockge stack and paste this compose file into the Compose section. Only the secret values from the next section need to go into Dockge's `.env` section.
 
 ```yaml
+x-app-env: &app_env
+  APP_NAME: Glade
+  APP_ENV: production
+  APP_KEY: "${APP_KEY}"
+  APP_DEBUG: "false"
+  APP_URL: "https://glade.woodchip.club"
+  ASSET_URL: "https://glade.woodchip.club"
+  FORCE_HTTPS: "true"
+
+  SSL_MODE: "off"
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: warning
+  LOG_OUTPUT_LEVEL: warn
+
+  DB_CONNECTION: pgsql
+  DB_HOST: pgsql
+  DB_PORT: 5432
+  DB_DATABASE: glade
+  DB_USERNAME: glade
+  DB_PASSWORD: "${DB_PASSWORD}"
+
+  SESSION_DRIVER: database
+  SESSION_SECURE_COOKIE: "true"
+  CACHE_STORE: database
+  QUEUE_CONNECTION: database
+  FILESYSTEM_DISK: local
+
 services:
   app:
     image: aaronpresley/glade-reader-web:latest
     pull_policy: always
     restart: unless-stopped
     ports:
-      - "8080:8080"
-    environment: &app_env
-      APP_NAME: Glade
-      APP_ENV: production
-      APP_KEY: "${APP_KEY}"
-      APP_DEBUG: "false"
-      APP_URL: "https://glade.woodchip.club"
-      ASSET_URL: "https://glade.woodchip.club"
-      FORCE_HTTPS: "true"
-
-      SSL_MODE: "off"
-      LOG_CHANNEL: stderr
-      LOG_LEVEL: warning
-      LOG_OUTPUT_LEVEL: warn
-
-      DB_CONNECTION: pgsql
-      DB_HOST: pgsql
-      DB_PORT: 5432
-      DB_DATABASE: glade
-      DB_USERNAME: glade
-      DB_PASSWORD: "${DB_PASSWORD}"
-
-      SESSION_DRIVER: database
-      SESSION_SECURE_COOKIE: "true"
-      CACHE_STORE: database
-      QUEUE_CONNECTION: database
-      FILESYSTEM_DISK: local
+      - "${APP_PORT}:8080"
+    environment:
+      <<: *app_env
+      CONTAINER_ROLE: app
+      RUN_MIGRATIONS: "true"
     volumes:
       - app_storage:/var/www/html/storage
     labels:
@@ -60,7 +65,10 @@ services:
     pull_policy: always
     restart: unless-stopped
     command: php artisan queue:work --tries=3 --timeout=90
-    environment: *app_env
+    environment:
+      <<: *app_env
+      CONTAINER_ROLE: queue
+      RUN_MIGRATIONS: "false"
     volumes:
       - app_storage:/var/www/html/storage
     labels:
@@ -74,24 +82,14 @@ services:
     pull_policy: always
     restart: unless-stopped
     command: php artisan schedule:work
-    environment: *app_env
+    environment:
+      <<: *app_env
+      CONTAINER_ROLE: scheduler
+      RUN_MIGRATIONS: "false"
     volumes:
       - app_storage:/var/www/html/storage
     labels:
       com.centurylinklabs.watchtower.enable: "true"
-    depends_on:
-      pgsql:
-        condition: service_healthy
-
-  migrate:
-    image: aaronpresley/glade-reader-cli:latest
-    pull_policy: always
-    profiles:
-      - tools
-    command: php artisan migrate --force
-    environment: *app_env
-    volumes:
-      - app_storage:/var/www/html/storage
     depends_on:
       pgsql:
         condition: service_healthy
@@ -132,6 +130,7 @@ volumes:
 Paste only the secrets into Dockge's `.env` section for the stack.
 
 ```dotenv
+APP_PORT=8080
 APP_KEY=base64:REPLACE_WITH_REAL_APP_KEY
 DB_PASSWORD=REPLACE_WITH_DB_PASSWORD
 ```
@@ -158,12 +157,12 @@ php artisan key:generate --show
 
 Set that value as `APP_KEY`.
 
-After the database is healthy, run the `migrate` service once from Dockge to create the database tables.
+The app container runs `php artisan migrate --force` at startup when `CONTAINER_ROLE=app` and `RUN_MIGRATIONS=true`, so first deploy and later restarts both apply pending migrations automatically.
 
 ## Notes
 
 - Keep `SESSION_SECURE_COOKIE: "true"` when the app is served through HTTPS. Use `"false"` only for plain HTTP testing.
 - `SSL_MODE: "off"` is correct when TLS terminates at a NAS reverse proxy or another frontend proxy.
-- The app listens on container port `8080`; change the left side of `8080:8080` if the NAS host port is already in use.
+- The app listens on container port `8080`; change `APP_PORT` in Dockge's `.env` section if the NAS host port is already in use.
 - Database, cache, sessions, and queue state are stored in Postgres.
 - Runtime app files are stored in the `app_storage` volume.

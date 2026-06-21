@@ -16,6 +16,7 @@ ENV PHP_OPCACHE_ENABLE=1 \
     LOG_OUTPUT_LEVEL=warn
 USER root
 RUN install-php-extensions intl mbstring pgsql
+COPY --chmod=755 docker/entrypoint.d/ /etc/entrypoint.d/
 USER www-data
 
 FROM serversideup/php:8.4-cli AS base-cli
@@ -33,6 +34,7 @@ ENV PHP_OPCACHE_ENABLE=1 \
     LOG_OUTPUT_LEVEL=warn
 USER root
 RUN install-php-extensions intl mbstring pgsql
+COPY --chmod=755 docker/entrypoint.d/ /etc/entrypoint.d/
 USER www-data
 
 # ====================
