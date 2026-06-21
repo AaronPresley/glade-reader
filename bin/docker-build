@@ -8,13 +8,47 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPOSITORY="aaronpresley/glade-reader"
 WEB_REPOSITORY="${REPOSITORY}-web"
 CLI_REPOSITORY="${REPOSITORY}-cli"
+PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
+BUILDER="${DOCKER_BUILDX_BUILDER:-glade-multiarch}"
+
+latest_published_version() {
+    local repository="$1"
+    local response
+    local tags_url="https://hub.docker.com/v2/repositories/${repository}/tags?page_size=100&ordering=last_updated"
+
+    if ! response="$(curl -fsSL --max-time 10 "${tags_url}" 2>/dev/null)"; then
+        return 1
+    fi
+
+    printf '%s\n' "${response}" | awk '
+        {
+            count = split($0, parts, /"name":"/)
+            for (i = 2; i <= count; i++) {
+                split(parts[i], tag, /"/)
+                if (tag[1] != "latest") {
+                    print tag[1]
+                    exit
+                }
+            }
+        }
+    '
+}
 
 if [[ "$#" -ne 0 ]]; then
     echo "Usage: bin/docker-build" >&2
     exit 1
 fi
 
-read -r -p "Version/tag: " VERSION
+LATEST_VERSION="$(latest_published_version "${WEB_REPOSITORY}" || true)"
+if [[ -z "${LATEST_VERSION}" ]]; then
+    LATEST_VERSION="$(latest_published_version "${CLI_REPOSITORY}" || true)"
+fi
+
+if [[ -n "${LATEST_VERSION}" ]]; then
+    read -r -p "New version/tag (latest published: ${LATEST_VERSION}): " VERSION
+else
+    read -r -p "New version/tag: " VERSION
+fi
 
 if [[ -z "${VERSION}" ]]; then
     echo "Version/tag cannot be empty." >&2
@@ -33,44 +67,39 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
+if ! docker buildx version >/dev/null 2>&1; then
+    echo "Docker Buildx is required to publish images for ${PLATFORM}." >&2
+    exit 1
+fi
+
 WEB_IMAGE="${WEB_REPOSITORY}:${VERSION}"
 WEB_LATEST_IMAGE="${WEB_REPOSITORY}:latest"
 CLI_IMAGE="${CLI_REPOSITORY}:${VERSION}"
 CLI_LATEST_IMAGE="${CLI_REPOSITORY}:latest"
 
-echo "Building ${WEB_IMAGE} from Docker target production"
-docker build --target production -t "${WEB_IMAGE}" -t "${WEB_LATEST_IMAGE}" .
+echo "Preparing Docker Buildx builder ${BUILDER}"
+if ! docker buildx inspect "${BUILDER}" >/dev/null 2>&1; then
+    docker buildx create --name "${BUILDER}" --driver docker-container --use >/dev/null
+else
+    docker buildx use "${BUILDER}" >/dev/null
+fi
+docker buildx inspect --bootstrap >/dev/null
 
-echo "Building ${CLI_IMAGE} from Docker target production-cli"
-docker build --target production-cli -t "${CLI_IMAGE}" -t "${CLI_LATEST_IMAGE}" .
-
-echo "Pushing ${WEB_IMAGE} and ${WEB_LATEST_IMAGE}"
+echo "Building and pushing ${WEB_IMAGE} and ${WEB_LATEST_IMAGE} from Docker target production for ${PLATFORM}"
 echo "This push requires Docker Hub auth for aaronpresley and existing public Docker Hub repositories: ${WEB_REPOSITORY} and ${CLI_REPOSITORY}"
-if ! docker push "${WEB_IMAGE}"; then
-    echo "Push failed for ${WEB_IMAGE}." >&2
-    echo "Likely causes: Docker Hub is not logged in as aaronpresley, the account lacks push access, or the public Docker Hub repository ${WEB_REPOSITORY} does not exist." >&2
-    echo "Remediation: log into Docker Hub as aaronpresley and ensure the public repository ${WEB_REPOSITORY} exists. This script does not run docker login or change Docker auth." >&2
-    exit 1
-fi
-if ! docker push "${WEB_LATEST_IMAGE}"; then
-    echo "Push failed for ${WEB_LATEST_IMAGE}." >&2
+if ! docker buildx build --platform "${PLATFORM}" --target production -t "${WEB_IMAGE}" -t "${WEB_LATEST_IMAGE}" --push .; then
+    echo "Build or push failed for ${WEB_IMAGE} and ${WEB_LATEST_IMAGE}." >&2
     echo "Likely causes: Docker Hub is not logged in as aaronpresley, the account lacks push access, or the public Docker Hub repository ${WEB_REPOSITORY} does not exist." >&2
     echo "Remediation: log into Docker Hub as aaronpresley and ensure the public repository ${WEB_REPOSITORY} exists. This script does not run docker login or change Docker auth." >&2
     exit 1
 fi
 
-echo "Pushing ${CLI_IMAGE} and ${CLI_LATEST_IMAGE}"
-if ! docker push "${CLI_IMAGE}"; then
-    echo "Push failed for ${CLI_IMAGE}." >&2
-    echo "Likely causes: Docker Hub is not logged in as aaronpresley, the account lacks push access, or the public Docker Hub repository ${CLI_REPOSITORY} does not exist." >&2
-    echo "Remediation: log into Docker Hub as aaronpresley and ensure the public repository ${CLI_REPOSITORY} exists. This script does not run docker login or change Docker auth." >&2
-    exit 1
-fi
-if ! docker push "${CLI_LATEST_IMAGE}"; then
-    echo "Push failed for ${CLI_LATEST_IMAGE}." >&2
+echo "Building and pushing ${CLI_IMAGE} and ${CLI_LATEST_IMAGE} from Docker target production-cli for ${PLATFORM}"
+if ! docker buildx build --platform "${PLATFORM}" --target production-cli -t "${CLI_IMAGE}" -t "${CLI_LATEST_IMAGE}" --push .; then
+    echo "Build or push failed for ${CLI_IMAGE} and ${CLI_LATEST_IMAGE}." >&2
     echo "Likely causes: Docker Hub is not logged in as aaronpresley, the account lacks push access, or the public Docker Hub repository ${CLI_REPOSITORY} does not exist." >&2
     echo "Remediation: log into Docker Hub as aaronpresley and ensure the public repository ${CLI_REPOSITORY} exists. This script does not run docker login or change Docker auth." >&2
     exit 1
 fi
 
-echo "Published ${WEB_IMAGE}, ${WEB_LATEST_IMAGE}, ${CLI_IMAGE}, and ${CLI_LATEST_IMAGE}"
+echo "Published ${WEB_IMAGE}, ${WEB_LATEST_IMAGE}, ${CLI_IMAGE}, and ${CLI_LATEST_IMAGE} for ${PLATFORM}"
