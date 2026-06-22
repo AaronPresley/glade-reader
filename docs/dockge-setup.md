@@ -15,114 +15,114 @@ Create a new Dockge stack and paste this compose file into the Compose section. 
 
 ```yaml
 x-app-env: &app_env
-  APP_NAME: Glade
-  APP_ENV: production
-  APP_KEY: "${APP_KEY}"
-  APP_DEBUG: "false"
-  APP_URL: "https://glade.woodchip.club"
-  ASSET_URL: "https://glade.woodchip.club"
-  FORCE_HTTPS: "true"
+    APP_NAME: Glade
+    APP_ENV: production
+    APP_KEY: '${APP_KEY}'
+    APP_DEBUG: 'false'
+    APP_URL: 'https://glade.woodchip.club'
+    ASSET_URL: 'https://glade.woodchip.club'
+    FORCE_HTTPS: 'true'
 
-  SSL_MODE: "off"
-  LOG_CHANNEL: stderr
-  LOG_LEVEL: warning
-  LOG_OUTPUT_LEVEL: warn
+    SSL_MODE: 'off'
+    LOG_CHANNEL: stderr
+    LOG_LEVEL: warning
+    LOG_OUTPUT_LEVEL: warn
 
-  DB_CONNECTION: pgsql
-  DB_HOST: pgsql
-  DB_PORT: 5432
-  DB_DATABASE: glade
-  DB_USERNAME: glade
-  DB_PASSWORD: "${DB_PASSWORD}"
+    DB_CONNECTION: pgsql
+    DB_HOST: pgsql
+    DB_PORT: 5432
+    DB_DATABASE: glade
+    DB_USERNAME: glade
+    DB_PASSWORD: '${DB_PASSWORD}'
 
-  SESSION_DRIVER: database
-  SESSION_SECURE_COOKIE: "true"
-  CACHE_STORE: database
-  QUEUE_CONNECTION: database
-  FILESYSTEM_DISK: local
+    SESSION_DRIVER: database
+    SESSION_SECURE_COOKIE: 'true'
+    CACHE_STORE: database
+    QUEUE_CONNECTION: database
+    FILESYSTEM_DISK: local
 
 services:
-  app:
-    image: aaronpresley/glade-reader-web:latest
-    pull_policy: always
-    restart: unless-stopped
-    ports:
-      - "${APP_PORT}:8080"
-    environment:
-      <<: *app_env
-      CONTAINER_ROLE: app
-      RUN_MIGRATIONS: "true"
-    volumes:
-      - app_storage:/var/www/html/storage
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
-    depends_on:
-      pgsql:
-        condition: service_healthy
+    app:
+        image: aaronpresley/glade-reader-web:latest
+        pull_policy: always
+        restart: unless-stopped
+        ports:
+            - '${APP_PORT}:8080'
+        environment:
+            <<: *app_env
+            CONTAINER_ROLE: app
+            RUN_MIGRATIONS: 'true'
+        volumes:
+            - app_storage:/var/www/html/storage
+        labels:
+            com.centurylinklabs.watchtower.enable: 'true'
+        depends_on:
+            pgsql:
+                condition: service_healthy
 
-  queue:
-    image: aaronpresley/glade-reader-cli:latest
-    pull_policy: always
-    restart: unless-stopped
-    command: php artisan queue:work --tries=3 --timeout=90
-    environment:
-      <<: *app_env
-      CONTAINER_ROLE: queue
-      RUN_MIGRATIONS: "false"
-    volumes:
-      - app_storage:/var/www/html/storage
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
-    depends_on:
-      pgsql:
-        condition: service_healthy
+    queue:
+        image: aaronpresley/glade-reader-cli:latest
+        pull_policy: always
+        restart: unless-stopped
+        command: php artisan queue:work --tries=3 --timeout=90
+        environment:
+            <<: *app_env
+            CONTAINER_ROLE: queue
+            RUN_MIGRATIONS: 'false'
+        volumes:
+            - app_storage:/var/www/html/storage
+        labels:
+            com.centurylinklabs.watchtower.enable: 'true'
+        depends_on:
+            pgsql:
+                condition: service_healthy
 
-  scheduler:
-    image: aaronpresley/glade-reader-cli:latest
-    pull_policy: always
-    restart: unless-stopped
-    command: php artisan schedule:work
-    environment:
-      <<: *app_env
-      CONTAINER_ROLE: scheduler
-      RUN_MIGRATIONS: "false"
-    volumes:
-      - app_storage:/var/www/html/storage
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
-    depends_on:
-      pgsql:
-        condition: service_healthy
+    scheduler:
+        image: aaronpresley/glade-reader-cli:latest
+        pull_policy: always
+        restart: unless-stopped
+        command: php artisan schedule:work
+        environment:
+            <<: *app_env
+            CONTAINER_ROLE: scheduler
+            RUN_MIGRATIONS: 'false'
+        volumes:
+            - app_storage:/var/www/html/storage
+        labels:
+            com.centurylinklabs.watchtower.enable: 'true'
+        depends_on:
+            pgsql:
+                condition: service_healthy
 
-  pgsql:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: glade
-      POSTGRES_USER: glade
-      POSTGRES_PASSWORD: "${DB_PASSWORD}"
-    volumes:
-      - pgsql_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+    pgsql:
+        image: postgres:17-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: glade
+            POSTGRES_USER: glade
+            POSTGRES_PASSWORD: '${DB_PASSWORD}'
+        volumes:
+            - pgsql_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+            interval: 5s
+            timeout: 5s
+            retries: 10
 
-  lighthouse:
-    image: containrrr/watchtower:latest
-    restart: unless-stopped
-    command:
-      - --label-enable
-      - --cleanup
-      - --interval
-      - "300"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+    lighthouse:
+        image: containrrr/watchtower:latest
+        restart: unless-stopped
+        command:
+            - --label-enable
+            - --cleanup
+            - --interval
+            - '300'
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
-  app_storage:
-  pgsql_data:
+    app_storage:
+    pgsql_data:
 ```
 
 ## Dockge .env
@@ -140,7 +140,7 @@ DB_PASSWORD=REPLACE_WITH_DB_PASSWORD
 The `lighthouse` service uses Watchtower to check for updated images every 300 seconds. It only updates containers with this label:
 
 ```yaml
-com.centurylinklabs.watchtower.enable: "true"
+com.centurylinklabs.watchtower.enable: 'true'
 ```
 
 That keeps the watcher scoped to the Glade web, queue, and scheduler containers instead of updating every container on the NAS.

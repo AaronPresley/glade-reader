@@ -1,12 +1,5 @@
 import { Button } from '@/components/ui/button';
-import {
-    Field,
-    FieldError,
-    FieldGroup,
-    FieldLabel,
-    FieldLegend,
-    FieldSet,
-} from '@/components/ui/field';
+import { Field, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
@@ -79,9 +72,7 @@ export default function Register() {
                                 onChange={(event) => setData('password_confirmation', event.target.value)}
                                 aria-invalid={Boolean(errors.password_confirmation)}
                             />
-                            {errors.password_confirmation && (
-                                <FieldError>{errors.password_confirmation}</FieldError>
-                            )}
+                            {errors.password_confirmation && <FieldError>{errors.password_confirmation}</FieldError>}
                         </Field>
                     </FieldGroup>
 

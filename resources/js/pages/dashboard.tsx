@@ -14,7 +14,6 @@ export default function Dashboard() {
 
     return (
         <>
-
             <p>{username}</p>
         </>
     );

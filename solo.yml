@@ -1,10 +1,10 @@
 name: glade
 icon: null
 processes:
-  Services:
-    command: docker compose up
-    working_dir: null
-    auto_start: true
-    auto_restart: true
-    restart_when_changed: []
-    env: {}
+    Services:
+        command: docker compose up
+        working_dir: null
+        auto_start: true
+        auto_restart: true
+        restart_when_changed: []
+        env: {}

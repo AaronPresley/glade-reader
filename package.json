@@ -4,7 +4,10 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "format": "npm run format:prettier && npm run format:pint",
+        "format:prettier": "prettier --write .",
+        "format:pint": "./run vendor/bin/pint"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
@@ -13,6 +16,7 @@
         "@vitejs/plugin-react": "^6.0.2",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^3.1",
+        "prettier": "^3.8.4",
         "tailwindcss": "^4.0.0",
         "typescript": "^6.0.3",
         "vite": "^8.0.0"
