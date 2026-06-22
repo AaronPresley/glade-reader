@@ -16,6 +16,23 @@ it('shows register before a user exists and returns not found after one exists',
     $this->get('/register')->assertNotFound();
 });
 
+it('redirects authenticated users away from register', function (): void {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/register')
+        ->assertRedirect('/');
+
+    $this->actingAs($user)
+        ->post('/register', [
+            'username' => 'second',
+            'email' => 'second@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])
+        ->assertRedirect('/');
+});
+
 it('registers the first user', function (): void {
     $this->post('/register', [
         'username' => 'apresley',

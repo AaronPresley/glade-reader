@@ -10,7 +10,7 @@ class RegisterRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return ! User::query()->exists();
+        return $this->user() !== null || ! User::query()->exists();
     }
 
     protected function failedAuthorization(): void

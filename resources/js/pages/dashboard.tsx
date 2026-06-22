@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 
 type PageProps = {
     auth?: {
@@ -14,6 +14,8 @@ export default function Dashboard() {
 
     return (
         <main className="p-8">
+
+            <Link method='post' href='/logout'>Logout</Link>
             <p>{username}</p>
         </main>
     );

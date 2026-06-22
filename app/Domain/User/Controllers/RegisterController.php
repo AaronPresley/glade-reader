@@ -13,8 +13,12 @@ use Inertia\Response;
 
 class RegisterController extends Controller
 {
-    public function create(): Response
+    public function create(): Response|RedirectResponse
     {
+        if (Auth::check()) {
+            return redirect('/');
+        }
+
         abort_if(User::query()->exists(), 404);
 
         return Inertia::render('register/index');
@@ -22,6 +26,10 @@ class RegisterController extends Controller
 
     public function store(RegisterRequest $request, CreateUserAction $createUser): RedirectResponse
     {
+        if (Auth::check()) {
+            return redirect('/');
+        }
+
         abort_if(User::query()->exists(), 404);
 
         $validated = $request->validated();
