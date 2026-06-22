@@ -32,7 +32,7 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt($credentials)) {
+        if (! Auth::attempt($credentials, true)) {
             throw ValidationException::withMessages([
                 'username' => __('auth.failed'),
             ]);
