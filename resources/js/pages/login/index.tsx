@@ -17,7 +17,7 @@ export default function Login() {
     }
 
     return (
-        <main>
+        <>
             <form onSubmit={submit}>
                 <FieldSet>
                     <FieldGroup>
@@ -52,6 +52,6 @@ export default function Login() {
                     </Button>
                 </FieldSet>
             </form>
-        </main>
+        </>
     );
 }

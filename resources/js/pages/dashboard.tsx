@@ -13,10 +13,9 @@ export default function Dashboard() {
     const username = auth?.user?.username ?? '';
 
     return (
-        <main className="p-8">
+        <>
 
-            <Link method='post' href='/logout'>Logout</Link>
             <p>{username}</p>
-        </main>
+        </>
     );
 }

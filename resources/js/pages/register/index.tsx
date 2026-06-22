@@ -26,7 +26,7 @@ export default function Register() {
     }
 
     return (
-        <main className="p-8">
+        <>
             <form onSubmit={submit} className="max-w-sm space-y-4">
                 <FieldSet>
                     <FieldLegend>Sup first user.</FieldLegend>
@@ -90,6 +90,6 @@ export default function Register() {
                     </Button>
                 </FieldSet>
             </form>
-        </main>
+        </>
     );
 }
