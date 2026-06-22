@@ -20,6 +20,7 @@ export default function Register() {
 
     return (
         <main className="p-8">
+            Sup first user.
             <form onSubmit={submit} className="max-w-sm space-y-4">
                 <div className="space-y-1">
                     <Label htmlFor="username" className="block text-sm font-medium">
