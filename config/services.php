@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'apify' => [
+        'api_token' => env('APIFY_API_TOKEN'),
+    ],
+
 ];

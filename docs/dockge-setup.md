@@ -40,6 +40,7 @@ x-app-env: &app_env
     CACHE_STORE: database
     QUEUE_CONNECTION: database
     FILESYSTEM_DISK: local
+    APIFY_API_TOKEN: '${APIFY_API_TOKEN}'
 
 services:
     app:
@@ -133,6 +134,7 @@ Paste only the secrets into Dockge's `.env` section for the stack.
 APP_PORT=8080
 APP_KEY=base64:REPLACE_WITH_REAL_APP_KEY
 DB_PASSWORD=REPLACE_WITH_DB_PASSWORD
+APIFY_API_TOKEN=REPLACE_WITH_APIFY_API_TOKEN
 ```
 
 ## Lighthouse Auto-Deploy

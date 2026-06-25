@@ -1,0 +1,13 @@
+#!/bin/bash
+# Opens this DB in TablePlus
+
+set -e
+
+# Load environment variables from .env
+if [ -f .env ]; then
+    export $(grep -E '^DB_(HOST|PORT|DATABASE|USERNAME|PASSWORD)=' .env | xargs)
+fi
+
+# Always use localhost since TablePlus runs on the host machine
+open "postgresql://${DB_USERNAME}:${DB_PASSWORD}@127.0.0.1:5432/${DB_DATABASE}"
+
