@@ -6,12 +6,14 @@ use App\Domain\SourceReference\Enums\SourceReferenceStatus;
 use App\Domain\SourceReference\Enums\SourceReferenceStepStatus;
 use App\Domain\SourceReference\Jobs\ProcessSourceReferenceJob;
 use App\Domain\SourceReference\Models\SourceReference;
+use App\Domain\User\Models\User;
 
 class CheckSourceReference
 {
-    public function handle(string $url): SourceReference
+    public function handle(User $user, string $url): SourceReference
     {
         $sourceReference = SourceReference::create([
+            'user_id' => $user->id,
             'url' => $url,
             'status' => SourceReferenceStatus::New,
             'metadata' => [

@@ -11,7 +11,7 @@ Use the `latest` tags below if you want Lighthouse to auto-deploy each new publi
 
 ## Dockge Compose
 
-Create a new Dockge stack and paste this compose file into the Compose section. Only the secret values from the next section need to go into Dockge's `.env` section.
+Create a new Dockge stack and paste this compose file into the Compose section. Deployment-specific values and secrets from the next section go into Dockge's `.env` section.
 
 ```yaml
 x-app-env: &app_env
@@ -39,7 +39,12 @@ x-app-env: &app_env
     SESSION_SECURE_COOKIE: 'true'
     CACHE_STORE: database
     QUEUE_CONNECTION: database
-    FILESYSTEM_DISK: local
+    FILESYSTEM_DISK: s3
+    AWS_ACCESS_KEY_ID: '${AWS_ACCESS_KEY_ID}'
+    AWS_SECRET_ACCESS_KEY: '${AWS_SECRET_ACCESS_KEY}'
+    AWS_DEFAULT_REGION: us-west-2
+    AWS_BUCKET: '${AWS_BUCKET}'
+    AWS_USE_PATH_STYLE_ENDPOINT: 'false'
     APIFY_API_TOKEN: '${APIFY_API_TOKEN}'
 
 services:
@@ -128,12 +133,15 @@ volumes:
 
 ## Dockge .env
 
-Paste only the secrets into Dockge's `.env` section for the stack.
+Paste these deployment-specific values and secrets into Dockge's `.env` section for the stack.
 
 ```dotenv
 APP_PORT=8080
 APP_KEY=base64:REPLACE_WITH_REAL_APP_KEY
 DB_PASSWORD=REPLACE_WITH_DB_PASSWORD
+AWS_ACCESS_KEY_ID=REPLACE_WITH_AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY=REPLACE_WITH_AWS_SECRET_ACCESS_KEY
+AWS_BUCKET=woodchip-club-glade
 APIFY_API_TOKEN=REPLACE_WITH_APIFY_API_TOKEN
 ```
 
@@ -167,4 +175,5 @@ The app container runs `php artisan migrate --force` at startup when `CONTAINER_
 - `SSL_MODE: "off"` is correct when TLS terminates at a NAS reverse proxy or another frontend proxy.
 - The app listens on container port `8080`; change `APP_PORT` in Dockge's `.env` section if the NAS host port is already in use.
 - Database, cache, sessions, and queue state are stored in Postgres.
-- Runtime app files are stored in the `app_storage` volume.
+- Laravel file storage uses the `s3` disk with the `woodchip-club-glade` bucket in `us-west-2`.
+- The `app_storage` volume is only for Laravel's writable runtime storage directory; uploaded/generated app files should be written through Laravel storage to S3.

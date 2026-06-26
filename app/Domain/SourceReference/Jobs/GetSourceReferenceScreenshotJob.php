@@ -31,7 +31,13 @@ class GetSourceReferenceScreenshotJob implements ShouldQueue
                 'metadata->screenshot->status' => SourceReferenceStepStatus::Processing->value,
             ]);
 
-        $path = 'source-references/'.$this->sourceReference->id.'/screenshot.png';
+        $requestedAt = $this->sourceReference->created_at ?? now();
+        $path = sprintf(
+            '%s/source-references/%s-%s.png',
+            app()->environment(),
+            $requestedAt->format('Y-m-d-H-i-s'),
+            $this->sourceReference->id,
+        );
 
         if (! Storage::put($path, $getScreenshotFromUrl->handle($this->sourceReference->url))) {
             throw new RuntimeException('Unable to store source reference screenshot.');
