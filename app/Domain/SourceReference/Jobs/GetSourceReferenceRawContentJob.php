@@ -27,6 +27,11 @@ class GetSourceReferenceRawContentJob implements ShouldQueue
             ->whereKey($this->sourceReference->id)
             ->update([
                 'metadata->raw_content->status' => SourceReferenceStepStatus::Processing->value,
+            ]);
+
+        SourceReference::query()
+            ->whereKey($this->sourceReference->id)
+            ->update([
                 'metadata->raw_content->error' => null,
             ]);
 
@@ -35,6 +40,11 @@ class GetSourceReferenceRawContentJob implements ShouldQueue
             ->update([
                 'raw_content' => $getRawContentFromUrl->handle($this->sourceReference->url),
                 'metadata->raw_content->status' => SourceReferenceStepStatus::Completed->value,
+            ]);
+
+        SourceReference::query()
+            ->whereKey($this->sourceReference->id)
+            ->update([
                 'metadata->raw_content->error' => null,
             ]);
     }
@@ -45,6 +55,11 @@ class GetSourceReferenceRawContentJob implements ShouldQueue
             ->whereKey($this->sourceReference->id)
             ->update([
                 'metadata->raw_content->status' => SourceReferenceStepStatus::Failed->value,
+            ]);
+
+        SourceReference::query()
+            ->whereKey($this->sourceReference->id)
+            ->update([
                 'metadata->raw_content->error' => $this->failureMessage($exception),
             ]);
     }

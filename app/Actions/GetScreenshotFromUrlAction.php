@@ -93,10 +93,13 @@ class GetScreenshotFromUrlAction
                 'excludes' => [],
                 'linkSelector' => '',
                 'keepUrlFragments' => false,
-                'respectRobotsTxtFile' => true,
+                'respectRobotsTxtFile' => false,
                 'pageFunction' => sprintf(<<<'JS'
 async function pageFunction(context) {
-    const { page, request } = context;
+    const { page, request, log } = context;
+    const title = await page.title();
+    log.info(`URL: ${request.url} TITLE: ${title}`);
+
     await page.setViewport({
         width: %d,
         height: %d,
@@ -112,12 +115,16 @@ async function pageFunction(context) {
 
     return {
         url: request.url,
+        title,
         screenshotBase64
     };
 }
 JS, self::VIEWPORT_WIDTH, self::VIEWPORT_HEIGHT),
                 'proxyConfiguration' => [
                     'useApifyProxy' => true,
+                    'apifyProxyGroups' => [
+                        'RESIDENTIAL',
+                    ],
                 ],
                 'proxyRotation' => 'RECOMMENDED',
                 'initialCookies' => [],
@@ -137,8 +144,22 @@ JS, self::VIEWPORT_WIDTH, self::VIEWPORT_HEIGHT),
                 'waitUntil' => [
                     'networkidle2',
                 ],
-                'preNavigationHooks' => '[]',
-                'postNavigationHooks' => '[]',
+                'preNavigationHooks' => <<<'JS'
+[
+    async (crawlingContext, gotoOptions) => {
+        const { page } = crawlingContext;
+        // ...
+    },
+]
+JS,
+                'postNavigationHooks' => <<<'JS'
+[
+    async (crawlingContext) => {
+        const { page } = crawlingContext;
+        // ...
+    },
+]
+JS,
                 'closeCookieModals' => false,
                 'maxScrollHeightPixels' => 5000,
                 'debugLog' => false,
