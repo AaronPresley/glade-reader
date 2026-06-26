@@ -49,6 +49,16 @@ class ProcessSourceReferenceJob implements ShouldQueue
     {
         $this->sourceReference->update([
             'status' => SourceReferenceStatus::Failed,
+            'metadata->process->error' => $this->failureMessage($exception),
         ]);
+    }
+
+    private function failureMessage(?Throwable $exception): string
+    {
+        if ($exception?->getMessage()) {
+            return $exception->getMessage();
+        }
+
+        return 'Unable to process source reference.';
     }
 }

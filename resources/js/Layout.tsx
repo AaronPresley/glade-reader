@@ -9,13 +9,13 @@ export default function Layout({ children }: PropsWithChildren) {
                 <nav>
                     <ul>
                         <li>
-                            <Link>Imports</Link>
+                            <Link href="/source-references">Sources</Link>
                         </li>
                     </ul>
                 </nav>
             </header>
             <main className="flex-1 flex flex-col px-4 py-3">{children}</main>
-            <footer>
+            <footer className="px-4 py-3 bg-gray-200 text-gray-600">
                 <Link method="post" href="/logout">
                     Logout
                 </Link>

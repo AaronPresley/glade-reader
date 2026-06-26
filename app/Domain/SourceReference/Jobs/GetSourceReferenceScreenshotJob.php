@@ -29,6 +29,7 @@ class GetSourceReferenceScreenshotJob implements ShouldQueue
             ->whereKey($this->sourceReference->id)
             ->update([
                 'metadata->screenshot->status' => SourceReferenceStepStatus::Processing->value,
+                'metadata->screenshot->error' => null,
             ]);
 
         $requestedAt = $this->sourceReference->created_at ?? now();
@@ -48,6 +49,7 @@ class GetSourceReferenceScreenshotJob implements ShouldQueue
             ->update([
                 'screenshot_path' => $path,
                 'metadata->screenshot->status' => SourceReferenceStepStatus::Completed->value,
+                'metadata->screenshot->error' => null,
             ]);
     }
 
@@ -57,6 +59,16 @@ class GetSourceReferenceScreenshotJob implements ShouldQueue
             ->whereKey($this->sourceReference->id)
             ->update([
                 'metadata->screenshot->status' => SourceReferenceStepStatus::Failed->value,
+                'metadata->screenshot->error' => $this->failureMessage($exception),
             ]);
+    }
+
+    private function failureMessage(?Throwable $exception): string
+    {
+        if ($exception?->getMessage()) {
+            return $exception->getMessage();
+        }
+
+        return 'Unable to get screenshot for source reference.';
     }
 }

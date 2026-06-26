@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use App\Domain\User\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,9 +19,13 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
+        Artisan::call('migrate:fresh --force');
+
         User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            'name' => 'Example User',
+            'username' => 'ExampleUser',
+            'email' => 'example@person.com',
+            'password' => Hash::make('IHeartDinosaurs'),
         ]);
     }
 }
