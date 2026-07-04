@@ -3,6 +3,7 @@
 namespace App\Domain\User\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Domain\Entry\Models\Entry;
 use App\Domain\SourceReference\Models\SourceReference;
 use App\Domain\User\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -30,6 +31,14 @@ class User extends Authenticatable
     public function sourceReferences(): HasMany
     {
         return $this->hasMany(SourceReference::class);
+    }
+
+    /**
+     * @return HasMany<Entry, $this>
+     */
+    public function entries(): HasMany
+    {
+        return $this->hasMany(Entry::class);
     }
 
     /**

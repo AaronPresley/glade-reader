@@ -2,6 +2,7 @@
 
 namespace App\Domain\SourceReference\Jobs;
 
+use App\Domain\Entry\Actions\GenerateArticleEntryAction;
 use App\Domain\SourceReference\Enums\SourceReferenceStatus;
 use App\Domain\SourceReference\Enums\SourceReferenceStepStatus;
 use App\Domain\SourceReference\Models\SourceReference;
@@ -42,6 +43,12 @@ class ProcessSourceReferenceJob implements ShouldQueue
                     ? SourceReferenceStatus::Completed
                     : SourceReferenceStatus::Failed,
             ]);
+
+            if ($rawContentCompleted && $screenshotCompleted) {
+                $sourceReference->loadMissing('user');
+
+                app(GenerateArticleEntryAction::class)->handle($sourceReference->user, $sourceReference);
+            }
         })->dispatch();
     }
 

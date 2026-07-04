@@ -47,6 +47,7 @@ x-app-env: &app_env
     AWS_USE_PATH_STYLE_ENDPOINT: 'false'
     APIFY_API_TOKEN: '${APIFY_API_TOKEN}'
     OPEN_ROUTER_API_KEY: '${OPEN_ROUTER_API_KEY}'
+    OPEN_ROUTER_MODEL: '${OPEN_ROUTER_MODEL}'
 
 x-queue-service: &queue_service
     image: aaronpresley/glade-reader-cli:latest
@@ -143,6 +144,7 @@ AWS_SECRET_ACCESS_KEY=REPLACE_WITH_AWS_SECRET_ACCESS_KEY
 AWS_BUCKET=woodchip-club-glade
 APIFY_API_TOKEN=REPLACE_WITH_APIFY_API_TOKEN
 OPEN_ROUTER_API_KEY=REPLACE_WITH_OPEN_ROUTER_API_KEY
+OPEN_ROUTER_MODEL=openai/gpt-4o-mini
 ```
 
 ## Lighthouse Auto-Deploy

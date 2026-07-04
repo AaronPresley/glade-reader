@@ -2,6 +2,8 @@
 
 namespace App\Domain\SourceReference\Controllers;
 
+use App\Domain\Entry\Enums\EntryType;
+use App\Domain\Entry\Models\Entry;
 use App\Domain\SourceReference\Actions\CheckSourceReference;
 use App\Domain\SourceReference\Actions\DeleteSourceReferenceAction;
 use App\Domain\SourceReference\Models\SourceReference;
@@ -66,6 +68,7 @@ class SourceReferenceController extends Controller
                 'image_url' => $sourceReference->screenshot_path
                     ? Storage::temporaryUrl($sourceReference->screenshot_path, now()->addMinutes(30))
                     : null,
+                'article_entry' => $this->articleEntrySummary($sourceReference),
             ],
         ]);
     }
@@ -85,5 +88,30 @@ class SourceReferenceController extends Controller
     private function authorizeSourceReference(Request $request, SourceReference $sourceReference): void
     {
         abort_unless($sourceReference->user_id === $request->user()->id, 404);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function articleEntrySummary(SourceReference $sourceReference): ?array
+    {
+        $entry = Entry::query()
+            ->where('user_id', $sourceReference->user_id)
+            ->where('source_reference_id', $sourceReference->id)
+            ->where('type', EntryType::Article->value)
+            ->latest()
+            ->first();
+
+        if (! $entry instanceof Entry) {
+            return null;
+        }
+
+        return [
+            'id' => $entry->id,
+            'type' => $entry->type instanceof \BackedEnum ? $entry->type->value : $entry->type,
+            'status' => $entry->status instanceof \BackedEnum ? $entry->status->value : $entry->status,
+            'created_at' => $entry->created_at?->toIso8601String(),
+            'updated_at' => $entry->updated_at?->toIso8601String(),
+        ];
     }
 }

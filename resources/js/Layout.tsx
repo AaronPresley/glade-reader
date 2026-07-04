@@ -5,9 +5,14 @@ export default function Layout({ children }: PropsWithChildren) {
     return (
         <div className="min-h-dvh flex flex-col">
             <header className="border-b flex flex-row justify-between items-end px-4 py-3 bg-olive-100">
-                <h1>Glade Reader</h1>
+                <h1>
+                    <Link href="/">Glade Reader</Link>
+                </h1>
                 <nav>
-                    <ul>
+                    <ul className="flex gap-3">
+                        <li>
+                            <Link href="/entries">Entries</Link>
+                        </li>
                         <li>
                             <Link href="/source-references">Sources</Link>
                         </li>

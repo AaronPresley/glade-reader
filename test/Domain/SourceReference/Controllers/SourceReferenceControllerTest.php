@@ -1,5 +1,8 @@
 <?php
 
+use App\Domain\Entry\Enums\EntryStatus;
+use App\Domain\Entry\Enums\EntryType;
+use App\Domain\Entry\Models\Entry;
 use App\Domain\SourceReference\Enums\SourceReferenceStatus;
 use App\Domain\SourceReference\Jobs\ProcessSourceReferenceJob;
 use App\Domain\SourceReference\Models\SourceReference;
@@ -110,6 +113,33 @@ it('shows a source reference', function (): void {
             ->where('sourceReference.raw_content', '{"title":"Example"}')
             ->where('sourceReference.metadata.raw_content.status', 'COMPLETED')
             ->where('sourceReference.image_url', fn (string $value): bool => str_contains($value, 'testing/source-references/example.png')));
+});
+
+it('includes an existing article entry summary when showing a source reference', function (): void {
+    $user = User::factory()->create();
+
+    $sourceReference = SourceReference::create([
+        'user_id' => $user->id,
+        'url' => 'https://example.com',
+        'status' => SourceReferenceStatus::Completed,
+    ]);
+
+    $entry = Entry::create([
+        'user_id' => $user->id,
+        'source_reference_id' => $sourceReference->id,
+        'type' => EntryType::Article->value,
+        'status' => EntryStatus::Completed->value,
+        'content' => 'Article content',
+    ]);
+
+    $this->actingAs($user)
+        ->get("/source-references/{$sourceReference->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('source-references/show')
+            ->where('sourceReference.article_entry.id', $entry->id)
+            ->where('sourceReference.article_entry.type', EntryType::Article->value)
+            ->where('sourceReference.article_entry.status', EntryStatus::Completed->value));
 });
 
 it('deletes a source reference and its screenshot', function (): void {

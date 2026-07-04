@@ -14,6 +14,12 @@ type SourceReference = {
     created_at: string | null;
     updated_at: string | null;
     image_url: string | null;
+    article_entry?: {
+        id: number;
+        status?: string | null;
+        type: string;
+        updated_at: string | null;
+    } | null;
 };
 
 type Props = {
@@ -46,9 +52,12 @@ function FieldRow({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function SourceReferencesShow({ sourceReference }: Props) {
-    const { delete: destroy, processing } = useForm({});
+    const { delete: destroy, processing: deleting } = useForm({});
+    const { post: generateArticle, processing: generatingArticle } = useForm({});
+    const articleEntry = sourceReference.article_entry ?? null;
+    const canGenerateArticle = sourceReference.status === 'COMPLETED';
 
-    function submit(event: FormEvent<HTMLFormElement>) {
+    function submitDelete(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
         if (!window.confirm('Delete this source reference?')) {
@@ -58,6 +67,12 @@ export default function SourceReferencesShow({ sourceReference }: Props) {
         destroy(`/source-references/${sourceReference.id}`);
     }
 
+    function submitGenerateArticle(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        generateArticle(`/source-references/${sourceReference.id}/entries/article`);
+    }
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
@@ -65,11 +80,25 @@ export default function SourceReferencesShow({ sourceReference }: Props) {
                     Sources
                 </Link>
 
-                <form onSubmit={submit}>
-                    <Button type="submit" variant="destructive" disabled={processing}>
-                        Delete
-                    </Button>
-                </form>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    {articleEntry && (
+                        <Link href={`/entries/${articleEntry.id}`} className="text-sm underline underline-offset-4">
+                            Article{articleEntry.status ? `: ${articleEntry.status}` : ''}
+                        </Link>
+                    )}
+
+                    <form onSubmit={submitGenerateArticle}>
+                        <Button type="submit" disabled={generatingArticle || !canGenerateArticle}>
+                            {articleEntry ? 'Regenerate article' : 'Generate article'}
+                        </Button>
+                    </form>
+
+                    <form onSubmit={submitDelete}>
+                        <Button type="submit" variant="destructive" disabled={deleting}>
+                            Delete
+                        </Button>
+                    </form>
+                </div>
             </div>
 
             <dl className="space-y-4">
@@ -108,7 +137,6 @@ export default function SourceReferencesShow({ sourceReference }: Props) {
                 <FieldRow label="created_at">{sourceReference.created_at ?? ''}</FieldRow>
                 <FieldRow label="updated_at">{sourceReference.updated_at ?? ''}</FieldRow>
             </dl>
-
         </div>
     );
 }
