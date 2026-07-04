@@ -39,4 +39,8 @@ return [
         'api_token' => env('APIFY_API_TOKEN'),
     ],
 
+    'open_router' => [
+        'api_key' => env('OPEN_ROUTER_API_KEY'),
+    ],
+
 ];

@@ -46,6 +46,24 @@ x-app-env: &app_env
     AWS_BUCKET: '${AWS_BUCKET}'
     AWS_USE_PATH_STYLE_ENDPOINT: 'false'
     APIFY_API_TOKEN: '${APIFY_API_TOKEN}'
+    OPEN_ROUTER_API_KEY: '${OPEN_ROUTER_API_KEY}'
+
+x-queue-service: &queue_service
+    image: aaronpresley/glade-reader-cli:latest
+    pull_policy: always
+    restart: unless-stopped
+    command: php artisan queue:work --tries=3 --timeout=90
+    environment:
+        <<: *app_env
+        CONTAINER_ROLE: queue
+        RUN_MIGRATIONS: 'false'
+    volumes:
+        - app_storage:/var/www/html/storage
+    labels:
+        com.centurylinklabs.watchtower.enable: 'true'
+    depends_on:
+        pgsql:
+            condition: service_healthy
 
 services:
     app:
@@ -66,22 +84,14 @@ services:
             pgsql:
                 condition: service_healthy
 
-    queue:
-        image: aaronpresley/glade-reader-cli:latest
-        pull_policy: always
-        restart: unless-stopped
-        command: php artisan queue:work --tries=3 --timeout=90
-        environment:
-            <<: *app_env
-            CONTAINER_ROLE: queue
-            RUN_MIGRATIONS: 'false'
-        volumes:
-            - app_storage:/var/www/html/storage
-        labels:
-            com.centurylinklabs.watchtower.enable: 'true'
-        depends_on:
-            pgsql:
-                condition: service_healthy
+    queue-1:
+        <<: *queue_service
+
+    queue-2:
+        <<: *queue_service
+
+    queue-3:
+        <<: *queue_service
 
     scheduler:
         image: aaronpresley/glade-reader-cli:latest
@@ -115,17 +125,6 @@ services:
             timeout: 5s
             retries: 10
 
-    lighthouse:
-        image: containrrr/watchtower:latest
-        restart: unless-stopped
-        command:
-            - --label-enable
-            - --cleanup
-            - --interval
-            - '300'
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
-
 volumes:
     app_storage:
     pgsql_data:
@@ -143,6 +142,7 @@ AWS_ACCESS_KEY_ID=REPLACE_WITH_AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY=REPLACE_WITH_AWS_SECRET_ACCESS_KEY
 AWS_BUCKET=woodchip-club-glade
 APIFY_API_TOKEN=REPLACE_WITH_APIFY_API_TOKEN
+OPEN_ROUTER_API_KEY=REPLACE_WITH_OPEN_ROUTER_API_KEY
 ```
 
 ## Lighthouse Auto-Deploy
@@ -175,5 +175,6 @@ The app container runs `php artisan migrate --force` at startup when `CONTAINER_
 - `SSL_MODE: "off"` is correct when TLS terminates at a NAS reverse proxy or another frontend proxy.
 - The app listens on container port `8080`; change `APP_PORT` in Dockge's `.env` section if the NAS host port is already in use.
 - Database, cache, sessions, and queue state are stored in Postgres.
+- Queue work is split across three explicit `queue-*` services. Add or remove `queue-*` service entries to change worker count.
 - Laravel file storage uses the `s3` disk with the `woodchip-club-glade` bucket in `us-west-2`.
 - The `app_storage` volume is only for Laravel's writable runtime storage directory; uploaded/generated app files should be written through Laravel storage to S3.
