@@ -35,9 +35,18 @@ class SourceReferenceController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
-        return Inertia::render('source-references/create');
+        $addSourceReferenceUrl = route('source-references.add', [
+            'token' => $request->user()->share_token,
+        ]);
+
+        return Inertia::render('source-references/create', [
+            'shareToken' => $request->user()->share_token,
+            'addSourceReferenceUrl' => $addSourceReferenceUrl,
+            'addSourceReferenceUrlTemplate' => "{$addSourceReferenceUrl}?url={url}",
+            'regenerateShareTokenUrl' => route('source-references.share-token.regenerate'),
+        ]);
     }
 
     public function store(CheckSourceReferenceRequest $request, CheckSourceReference $checkSourceReference): RedirectResponse

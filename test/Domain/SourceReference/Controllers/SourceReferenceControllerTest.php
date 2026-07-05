@@ -18,6 +18,7 @@ it('requires authentication for source references', function (): void {
     $this->get('/source-references')->assertRedirect('/login');
     $this->get('/source-references/create')->assertRedirect('/login');
     $this->post('/source-references', ['url' => 'https://example.com'])->assertRedirect('/login');
+    $this->post('/source-references/share-token/regenerate')->assertRedirect('/login');
 });
 
 it('shows the authenticated users source references', function (): void {
@@ -49,11 +50,19 @@ it('shows the authenticated users source references', function (): void {
 
 it('shows create', function (): void {
     $user = User::factory()->create();
+    $addSourceReferenceUrl = route('source-references.add', [
+        'token' => $user->share_token,
+    ]);
 
     $this->actingAs($user)
         ->get('/source-references/create')
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('source-references/create'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('source-references/create')
+            ->where('shareToken', $user->share_token)
+            ->where('addSourceReferenceUrl', $addSourceReferenceUrl)
+            ->where('addSourceReferenceUrlTemplate', "{$addSourceReferenceUrl}?url={url}")
+            ->where('regenerateShareTokenUrl', route('source-references.share-token.regenerate')));
 });
 
 it('stores a source reference', function (): void {
@@ -78,6 +87,77 @@ it('stores a source reference', function (): void {
     ]);
 
     Bus::assertDispatched(ProcessSourceReferenceJob::class);
+});
+
+it('stores a source reference from the public get add route', function (): void {
+    Bus::fake();
+
+    $user = User::factory()->create();
+
+    $this->get(route('source-references.add', [
+        'token' => $user->share_token,
+        'url' => 'https://example.com/public-get',
+    ]))->assertNoContent();
+
+    $this->assertDatabaseHas('source_references', [
+        'user_id' => $user->id,
+        'url' => 'https://example.com/public-get',
+        'status' => SourceReferenceStatus::New->value,
+    ]);
+
+    Bus::assertDispatched(ProcessSourceReferenceJob::class);
+});
+
+it('stores a source reference from the public post add route', function (): void {
+    Bus::fake();
+
+    $user = User::factory()->create();
+
+    $this->post(route('source-references.add', [
+        'token' => $user->share_token,
+    ]), [
+        'url' => 'https://example.com/public-post',
+    ])->assertNoContent();
+
+    $this->assertDatabaseHas('source_references', [
+        'user_id' => $user->id,
+        'url' => 'https://example.com/public-post',
+        'status' => SourceReferenceStatus::New->value,
+    ]);
+
+    Bus::assertDispatched(ProcessSourceReferenceJob::class);
+});
+
+it('returns json validation errors for invalid public add urls', function (): void {
+    $user = User::factory()->create();
+
+    $this->getJson(route('source-references.add', [
+        'token' => $user->share_token,
+        'url' => 'not-a-url',
+    ]))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('url');
+});
+
+it('returns json not found for invalid public add tokens', function (): void {
+    $this->getJson(route('source-references.add', [
+        'token' => 'invalid-token',
+        'url' => 'https://example.com/source',
+    ]))
+        ->assertNotFound()
+        ->assertJsonPath('message', 'Invalid share token.');
+});
+
+it('regenerates the authenticated users share token', function (): void {
+    $user = User::factory()->create();
+    $originalToken = $user->share_token;
+
+    $this->actingAs($user)
+        ->from('/source-references/create')
+        ->post('/source-references/share-token/regenerate')
+        ->assertRedirect('/source-references/create');
+
+    expect($user->refresh()->share_token)->not->toBe($originalToken);
 });
 
 it('validates source reference urls', function (): void {

@@ -13,6 +13,7 @@ class CreateUserAction
             'username' => $username,
             'email' => $email,
             'password' => $password,
+            'share_token' => User::generateShareToken(),
         ]);
     }
 }

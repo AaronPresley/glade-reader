@@ -13,12 +13,30 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'username', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['name', 'username', 'email', 'password', 'share_token'])]
+#[Hidden(['password', 'remember_token', 'share_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user): void {
+            if (! $user->share_token) {
+                $user->share_token = static::generateShareToken();
+            }
+        });
+    }
+
+    public static function generateShareToken(): string
+    {
+        do {
+            $token = bin2hex(random_bytes(32));
+        } while (static::query()->where('share_token', $token)->exists());
+
+        return $token;
+    }
 
     protected static function newFactory(): UserFactory
     {
