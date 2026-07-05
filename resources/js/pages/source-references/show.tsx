@@ -82,7 +82,7 @@ export default function SourceReferencesShow({ sourceReference }: Props) {
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                     {articleEntry && (
-                        <Link href={`/entries/${articleEntry.id}`} className="text-sm underline underline-offset-4">
+                        <Link href={`/entries/${articleEntry.id}/details`} className="text-sm underline underline-offset-4">
                             Article{articleEntry.status ? `: ${articleEntry.status}` : ''}
                         </Link>
                     )}

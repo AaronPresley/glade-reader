@@ -26,6 +26,6 @@ class SourceReferenceArticleEntryController extends Controller
             ]);
         }
 
-        return redirect()->route('entries.show', $entry);
+        return redirect()->route('entries.details', $entry);
     }
 }

@@ -68,7 +68,7 @@ it('stores a source reference', function (): void {
 
     $sourceReference = SourceReference::firstOrFail();
 
-    $response->assertRedirect(route('source-references.show', $sourceReference));
+    $response->assertRedirect(route('entries.index'));
 
     $this->assertDatabaseHas('source_references', [
         'id' => $sourceReference->id,

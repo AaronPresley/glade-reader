@@ -17,8 +17,8 @@ export default function SourceReferencesCreate() {
 
     return (
         <div className="max-w-xl space-y-4">
-            <Link href="/source-references" className="underline underline-offset-4">
-                Sources
+            <Link href="/entries" className="underline underline-offset-4">
+                Entries
             </Link>
 
             <form onSubmit={submit}>

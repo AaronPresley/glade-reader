@@ -14,10 +14,11 @@ Route::get('/register', [RegisterController::class, 'create']);
 Route::post('/register', [RegisterController::class, 'store']);
 
 Route::middleware('auth')->group(function (): void {
-    Route::redirect('/', '/entries');
+    Route::redirect('/', '/entries')->name('home');
     Route::get('/entries', [EntryController::class, 'index'])->name('entries.index');
-    Route::get('/entries/{entry}/read', [EntryController::class, 'read'])->whereNumber('entry')->name('entries.read');
     Route::get('/entries/{entry}', [EntryController::class, 'show'])->whereNumber('entry')->name('entries.show');
+    Route::get('/entries/{entry}/details', [EntryController::class, 'details'])->whereNumber('entry')->name('entries.details');
+    Route::post('/entries/{entry}/archive', [EntryController::class, 'archive'])->whereNumber('entry')->name('entries.archive');
     Route::delete('/entries/{entry}', [EntryController::class, 'destroy'])->whereNumber('entry')->name('entries.destroy');
     Route::get('/source-references', [SourceReferenceController::class, 'index'])->name('source-references.index');
     Route::get('/source-references/create', [SourceReferenceController::class, 'create'])->name('source-references.create');

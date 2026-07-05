@@ -42,6 +42,7 @@ function createEntryControllerArticleEntry(
         'status' => $attributes['status'] ?? EntryStatus::Completed->value,
         'content' => $attributes['content'] ?? 'Article content',
         'metadata' => $attributes['metadata'] ?? null,
+        'archived_at' => $attributes['archived_at'] ?? null,
     ]);
 }
 
@@ -63,7 +64,8 @@ function createEntryControllerGeneratableSourceReference(
 it('requires authentication for entries and source reference article generation', function (): void {
     $this->get('/entries')->assertRedirect('/login');
     $this->get('/entries/1')->assertRedirect('/login');
-    $this->get('/entries/1/read')->assertRedirect('/login');
+    $this->get('/entries/1/details')->assertRedirect('/login');
+    $this->post('/entries/1/archive')->assertRedirect('/login');
     $this->delete('/entries/1')->assertRedirect('/login');
     $this->post('/source-references/1/entries/article')->assertRedirect('/login');
 });
@@ -111,25 +113,54 @@ it('shows the authenticated users entries', function (): void {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('entries/index')
-            ->has('entries', 1)
-            ->where('entries.0.id', $entry->id)
-            ->where('entries.0.type', EntryType::Article->value)
-            ->where('entries.0.status', EntryStatus::Completed->value)
-            ->where('entries.0.source_reference.url', 'https://example.com/source'));
+            ->has('unarchivedEntries', 1)
+            ->where('unarchivedEntries.0.id', $entry->id)
+            ->where('unarchivedEntries.0.type', EntryType::Article->value)
+            ->where('unarchivedEntries.0.status', EntryStatus::Completed->value)
+            ->where('unarchivedEntries.0.archived_at', null)
+            ->where('unarchivedEntries.0.source_reference.url', 'https://example.com/source')
+            ->has('archivedEntries', 0)
+            ->where('sourceProcessing', null));
 });
 
-it('shows the authenticated users entries on the app landing page', function (): void {
+it('redirects the authenticated app landing page to entries', function (): void {
     $user = User::factory()->create();
-    $sourceReference = createEntryControllerSourceReference($user);
-    $entry = createEntryControllerArticleEntry($user, $sourceReference);
 
     $this->actingAs($user)
         ->get('/')
+        ->assertRedirect('/entries');
+});
+
+it('shows archived entries and source processing counts', function (): void {
+    $user = User::factory()->create();
+    $archivedSourceReference = createEntryControllerSourceReference(
+        $user,
+        url: 'https://example.com/archived',
+    );
+    $archivedEntry = createEntryControllerArticleEntry($user, $archivedSourceReference, [
+        'archived_at' => now(),
+    ]);
+    createEntryControllerSourceReference(
+        $user,
+        status: SourceReferenceStatus::Pending,
+        url: 'https://example.com/processing',
+    );
+    createEntryControllerSourceReference(
+        $user,
+        status: SourceReferenceStatus::Failed,
+        url: 'https://example.com/failed',
+    );
+
+    $this->actingAs($user)
+        ->get('/entries')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('entries/index')
-            ->has('entries', 1)
-            ->where('entries.0.id', $entry->id));
+            ->has('unarchivedEntries', 0)
+            ->has('archivedEntries', 1)
+            ->where('archivedEntries.0.id', $archivedEntry->id)
+            ->where('sourceProcessing.processing', 1)
+            ->where('sourceProcessing.failed', 1));
 });
 
 it('shows and deletes owned entries', function (): void {
@@ -138,7 +169,7 @@ it('shows and deletes owned entries', function (): void {
     $entry = createEntryControllerArticleEntry($user, $sourceReference);
 
     $this->actingAs($user)
-        ->get("/entries/{$entry->id}")
+        ->get("/entries/{$entry->id}/details")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('entries/show')
@@ -162,7 +193,7 @@ it('renders completed entries in the read view', function (): void {
     ]);
 
     $this->actingAs($user)
-        ->get("/entries/{$entry->id}/read")
+        ->get("/entries/{$entry->id}")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('entries/read')
@@ -172,7 +203,7 @@ it('renders completed entries in the read view', function (): void {
             ->where('entry.source_reference.url', 'https://example.com/source'));
 });
 
-it('redirects incomplete entries from the read view to show', function (): void {
+it('redirects incomplete entries from the read route to details', function (): void {
     $user = User::factory()->create();
     $sourceReference = createEntryControllerSourceReference($user);
     $entry = createEntryControllerArticleEntry($user, $sourceReference, [
@@ -180,8 +211,20 @@ it('redirects incomplete entries from the read view to show', function (): void 
     ]);
 
     $this->actingAs($user)
-        ->get("/entries/{$entry->id}/read")
-        ->assertRedirect(route('entries.show', $entry));
+        ->get("/entries/{$entry->id}")
+        ->assertRedirect(route('entries.details', $entry));
+});
+
+it('archives owned entries', function (): void {
+    $user = User::factory()->create();
+    $sourceReference = createEntryControllerSourceReference($user);
+    $entry = createEntryControllerArticleEntry($user, $sourceReference);
+
+    $this->actingAs($user)
+        ->post("/entries/{$entry->id}/archive")
+        ->assertRedirect('/entries');
+
+    expect($entry->refresh()->archived_at)->not->toBeNull();
 });
 
 it('does not allow cross-user entry access or mutation', function (): void {
@@ -195,7 +238,11 @@ it('does not allow cross-user entry access or mutation', function (): void {
         ->assertNotFound();
 
     $this->actingAs($user)
-        ->get("/entries/{$otherEntry->id}/read")
+        ->get("/entries/{$otherEntry->id}/details")
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->post("/entries/{$otherEntry->id}/archive")
         ->assertNotFound();
 
     $this->actingAs($user)
@@ -251,7 +298,7 @@ it('dispatches article generation and redirects to a new article entry', functio
 
     $entry = Entry::firstOrFail();
 
-    $response->assertRedirect(route('entries.show', $entry));
+    $response->assertRedirect(route('entries.details', $entry));
 
     $this->assertDatabaseHas('entries', [
         'id' => $entry->id,
@@ -278,7 +325,7 @@ it('dispatches article generation and redirects to an existing article entry', f
 
     $this->actingAs($user)
         ->post("/source-references/{$sourceReference->id}/entries/article")
-        ->assertRedirect(route('entries.show', $entry));
+        ->assertRedirect(route('entries.details', $entry));
 
     $this->assertDatabaseHas('entries', [
         'id' => $entry->id,

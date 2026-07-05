@@ -16,6 +16,7 @@ type Entry = {
     metadata?: unknown;
     created_at?: string | null;
     updated_at: string | null;
+    archived_at?: string | null;
     source_reference_id?: number | string | null;
     source_reference_url?: string | null;
     source_url?: string | null;
@@ -93,7 +94,7 @@ export default function EntriesShow({ entry }: Props) {
                     <Button
                         type="button"
                         disabled={!canRead}
-                        onClick={() => router.visit(`/entries/${entry.id}/read`)}
+                        onClick={() => router.visit(`/entries/${entry.id}`)}
                     >
                         Read
                     </Button>
@@ -127,6 +128,7 @@ export default function EntriesShow({ entry }: Props) {
                 </FieldRow>
                 <FieldRow label="created_at">{entry.created_at ?? ''}</FieldRow>
                 <FieldRow label="updated_at">{entry.updated_at ?? ''}</FieldRow>
+                <FieldRow label="archived_at">{entry.archived_at ?? ''}</FieldRow>
             </dl>
 
             <section className="space-y-2">

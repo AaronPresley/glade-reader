@@ -42,12 +42,12 @@ class SourceReferenceController extends Controller
 
     public function store(CheckSourceReferenceRequest $request, CheckSourceReference $checkSourceReference): RedirectResponse
     {
-        $sourceReference = $checkSourceReference->handle(
+        $checkSourceReference->handle(
             user: $request->user(),
             url: $request->validated('url'),
         );
 
-        return redirect()->route('source-references.show', $sourceReference);
+        return redirect()->route('entries.index');
     }
 
     public function show(Request $request, SourceReference $sourceReference): Response

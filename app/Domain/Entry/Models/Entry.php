@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'source_reference_id', 'type', 'status', 'content', 'metadata'])]
+#[Fillable(['user_id', 'source_reference_id', 'type', 'status', 'content', 'metadata', 'archived_at'])]
 class Entry extends Model
 {
     /**
@@ -40,6 +40,7 @@ class Entry extends Model
             'type' => EntryType::class,
             'status' => EntryStatus::class,
             'metadata' => 'array',
+            'archived_at' => 'datetime',
         ];
     }
 }
