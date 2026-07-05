@@ -23,10 +23,10 @@ export default function EntriesRead({ entry }: Props) {
     const { post, processing } = useForm({});
     const archived = Boolean(entry.archived_at);
 
-    function archive(event: FormEvent<HTMLFormElement>) {
+    function toggleArchive(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
-        post(`/entries/${entry.id}/archive`);
+        post(`/entries/${entry.id}/${archived ? 'unarchive' : 'archive'}`);
     }
 
     return (
@@ -50,9 +50,9 @@ export default function EntriesRead({ entry }: Props) {
                         </a>
                     </>
                 )}
-                <form onSubmit={archive}>
-                    <Button type="submit" variant="outline" disabled={processing || archived}>
-                        {archived ? 'Archived' : 'Archive'}
+                <form onSubmit={toggleArchive}>
+                    <Button type="submit" variant="outline" disabled={processing}>
+                        {archived ? 'Unarchive' : 'Archive'}
                     </Button>
                 </form>
             </div>

@@ -3,6 +3,7 @@
 namespace App\Domain\Entry\Controllers;
 
 use App\Domain\Entry\Actions\ArchiveEntryAction;
+use App\Domain\Entry\Actions\UnarchiveEntryAction;
 use App\Domain\Entry\Enums\EntryStatus;
 use App\Domain\Entry\Models\Entry;
 use App\Domain\SourceReference\Enums\SourceReferenceStatus;
@@ -79,6 +80,15 @@ class EntryController extends Controller
         $this->authorizeEntry($request, $entry);
 
         $archiveEntry->handle($entry);
+
+        return redirect()->route('entries.index');
+    }
+
+    public function unarchive(Request $request, Entry $entry, UnarchiveEntryAction $unarchiveEntry): RedirectResponse
+    {
+        $this->authorizeEntry($request, $entry);
+
+        $unarchiveEntry->handle($entry);
 
         return redirect()->route('entries.index');
     }

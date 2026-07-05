@@ -66,6 +66,7 @@ it('requires authentication for entries and source reference article generation'
     $this->get('/entries/1')->assertRedirect('/login');
     $this->get('/entries/1/details')->assertRedirect('/login');
     $this->post('/entries/1/archive')->assertRedirect('/login');
+    $this->post('/entries/1/unarchive')->assertRedirect('/login');
     $this->delete('/entries/1')->assertRedirect('/login');
     $this->post('/source-references/1/entries/article')->assertRedirect('/login');
 });
@@ -227,6 +228,20 @@ it('archives owned entries', function (): void {
     expect($entry->refresh()->archived_at)->not->toBeNull();
 });
 
+it('unarchives owned entries', function (): void {
+    $user = User::factory()->create();
+    $sourceReference = createEntryControllerSourceReference($user);
+    $entry = createEntryControllerArticleEntry($user, $sourceReference, [
+        'archived_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->post("/entries/{$entry->id}/unarchive")
+        ->assertRedirect('/entries');
+
+    expect($entry->refresh()->archived_at)->toBeNull();
+});
+
 it('does not allow cross-user entry access or mutation', function (): void {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
@@ -243,6 +258,10 @@ it('does not allow cross-user entry access or mutation', function (): void {
 
     $this->actingAs($user)
         ->post("/entries/{$otherEntry->id}/archive")
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->post("/entries/{$otherEntry->id}/unarchive")
         ->assertNotFound();
 
     $this->actingAs($user)

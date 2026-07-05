@@ -19,6 +19,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/entries/{entry}', [EntryController::class, 'show'])->whereNumber('entry')->name('entries.show');
     Route::get('/entries/{entry}/details', [EntryController::class, 'details'])->whereNumber('entry')->name('entries.details');
     Route::post('/entries/{entry}/archive', [EntryController::class, 'archive'])->whereNumber('entry')->name('entries.archive');
+    Route::post('/entries/{entry}/unarchive', [EntryController::class, 'unarchive'])->whereNumber('entry')->name('entries.unarchive');
     Route::delete('/entries/{entry}', [EntryController::class, 'destroy'])->whereNumber('entry')->name('entries.destroy');
     Route::get('/source-references', [SourceReferenceController::class, 'index'])->name('source-references.index');
     Route::get('/source-references/create', [SourceReferenceController::class, 'create'])->name('source-references.create');

@@ -1,6 +1,5 @@
-import { Button } from '@/components/ui/button';
-import { Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Link } from '@inertiajs/react';
 
 type SourceReferenceSummary = {
     id?: number | string | null;
@@ -62,74 +61,44 @@ function sourceProcessingMessage(sourceProcessing: SourceProcessing): string {
 }
 
 type EntriesTableProps = {
-    title: string;
     entries: Entry[];
-    emptyMessage: string;
-    archivingEntryId: number | null;
-    onArchive: (entry: Entry) => void;
 };
 
-function EntriesTable({ title, entries, emptyMessage, archivingEntryId, onArchive }: EntriesTableProps) {
+function EntriesTable({ entries }: EntriesTableProps) {
     return (
-        <section className="space-y-2">
-            <h3 className="text-base font-medium">{title}</h3>
+        <section>
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                     <thead>
                         <tr className="border-b">
-                            <th className="py-2 pr-4 font-medium">Type</th>
                             <th className="py-2 pr-4 font-medium">Status</th>
                             <th className="py-2 pr-4 font-medium">Source URL</th>
-                            <th className="py-2 pr-4 font-medium">Updated</th>
                             <th className="py-2 font-medium">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {entries.map((entry) => {
-                            const archived = Boolean(entry.archived_at);
-
-                            return (
-                                <tr key={entry.id} className="border-b align-top">
-                                    <td className="py-2 pr-4">{entry.type}</td>
-                                    <td className="py-2 pr-4">{entry.status ?? ''}</td>
-                                    <td className="max-w-xl py-2 pr-4 break-all">{getSourceUrl(entry)}</td>
-                                    <td className="py-2 pr-4">{entry.updated_at ?? ''}</td>
-                                    <td className="py-2">
-                                        <div className="flex flex-wrap items-center gap-3">
-                                            {canRead(entry) ? (
-                                                <Link href={`/entries/${entry.id}`} className="underline underline-offset-4">
-                                                    Read
-                                                </Link>
-                                            ) : (
-                                                <span className="text-gray-400">Read</span>
-                                            )}
-
-                                            <Link
-                                                href={`/entries/${entry.id}/details`}
-                                                className="underline underline-offset-4"
-                                            >
-                                                Details
-                                            </Link>
-
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                disabled={archived || archivingEntryId === entry.id}
-                                                onClick={() => onArchive(entry)}
-                                            >
-                                                {archived ? 'Archived' : 'Archive'}
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                        {entries.map((entry) => (
+                            <tr key={entry.id} className="border-b align-top">
+                                <td className="py-2 pr-4">{entry.status ?? ''}</td>
+                                <td className="max-w-xl py-2 pr-4 break-all">{getSourceUrl(entry)}</td>
+                                <td className="py-2">
+                                    {canRead(entry) ? (
+                                        <Link href={`/entries/${entry.id}`} className={buttonVariants({ size: 'sm' })}>
+                                            Read
+                                        </Link>
+                                    ) : (
+                                        <Button type="button" size="sm" disabled>
+                                            Read
+                                        </Button>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
 
                         {entries.length === 0 && (
                             <tr>
-                                <td className="py-4" colSpan={5}>
-                                    {emptyMessage}
+                                <td className="py-4" colSpan={3}>
+                                    No entries.
                                 </td>
                             </tr>
                         )}
@@ -140,26 +109,31 @@ function EntriesTable({ title, entries, emptyMessage, archivingEntryId, onArchiv
     );
 }
 
+function ArchivedEntriesList({ entries }: { entries: Entry[] }) {
+    return (
+        <section className="space-y-2">
+            <h3 className="text-base font-medium">Archived</h3>
+            {entries.length > 0 ? (
+                <ul className="divide-y text-sm">
+                    {entries.map((entry) => (
+                        <li key={entry.id}>
+                            <Link
+                                href={`/entries/${entry.id}`}
+                                className="block max-w-3xl break-all py-2 underline underline-offset-4"
+                            >
+                                {getSourceUrl(entry) || `Entry ${entry.id}`}
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="py-2 text-sm">No archived entries.</p>
+            )}
+        </section>
+    );
+}
+
 export default function EntriesIndex({ unarchivedEntries, archivedEntries, sourceProcessing }: Props) {
-    const [archivingEntryId, setArchivingEntryId] = useState<number | null>(null);
-
-    function archiveEntry(entry: Entry) {
-        if (!window.confirm('Archive this entry?')) {
-            return;
-        }
-
-        setArchivingEntryId(entry.id);
-
-        router.post(
-            `/entries/${entry.id}/archive`,
-            {},
-            {
-                preserveScroll: true,
-                onFinish: () => setArchivingEntryId(null),
-            },
-        );
-    }
-
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between gap-4">
@@ -178,21 +152,9 @@ export default function EntriesIndex({ unarchivedEntries, archivedEntries, sourc
                 </section>
             )}
 
-            <EntriesTable
-                title="Unarchived"
-                entries={unarchivedEntries}
-                emptyMessage="No unarchived entries."
-                archivingEntryId={archivingEntryId}
-                onArchive={archiveEntry}
-            />
+            <EntriesTable entries={unarchivedEntries} />
 
-            <EntriesTable
-                title="Archived"
-                entries={archivedEntries}
-                emptyMessage="No archived entries."
-                archivingEntryId={archivingEntryId}
-                onArchive={archiveEntry}
-            />
+            <ArchivedEntriesList entries={archivedEntries} />
         </div>
     );
 }
