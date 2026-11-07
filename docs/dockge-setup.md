@@ -173,6 +173,7 @@ The app container runs `php artisan migrate --force` at startup when `CONTAINER_
 
 ## Notes
 
+- Amp orbs use an isolated SQLite database and local file storage by default; those development-only overrides do not change the Dockge environment above. See [.agents/orb-context.md](../.agents/orb-context.md) for the separate orb workflow.
 - Keep `SESSION_SECURE_COOKIE: "true"` when the app is served through HTTPS. Use `"false"` only for plain HTTP testing.
 - `SSL_MODE: "off"` is correct when TLS terminates at a NAS reverse proxy or another frontend proxy.
 - The app listens on container port `8080`; change `APP_PORT` in Dockge's `.env` section if the NAS host port is already in use.

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+# SQLite needs no daemon or credentials after a snapshot is restored.
+# A stopped Vite server must not make Laravel ignore the built assets.
+rm -f public/hot
+printf 'Orb ready; use amp orb services ensure to open Glade.\n'

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+SECONDS=0
+step() { printf '\n[%ss] %s\n' "$SECONDS" "$*"; }
+
+step 'Checking PHP 8.4 and system packages'
+packages=(php8.4-cli php8.4-curl php8.4-intl php8.4-mbstring php8.4-pgsql php8.4-sqlite3 php8.4-xml php8.4-zip unzip)
+missing=()
+for package in "${packages[@]}"; do
+    if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -qx 'install ok installed'; then
+        missing+=("$package")
+    fi
+done
+if ((${#missing[@]})); then
+    if [[ ! -f /etc/apt/sources.list.d/php-sury.list ]]; then
+        curl -fsSL --retry 3 https://packages.sury.org/php/apt.gpg \
+            | sudo tee /usr/share/keyrings/php-sury.gpg >/dev/null
+        echo 'deb [signed-by=/usr/share/keyrings/php-sury.gpg] https://packages.sury.org/php/ bookworm main' \
+            | sudo tee /etc/apt/sources.list.d/php-sury.list >/dev/null
+    fi
+    sudo apt-get update -qq
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
+fi
+sudo update-alternatives --set php /usr/bin/php8.4
+
+step 'Checking Composer and Node'
+if ! command -v composer >/dev/null; then
+    temporary=$(mktemp -d)
+    trap 'rm -rf "$temporary"' EXIT
+    installer="$temporary/composer-setup.php"
+    curl -fsSL --retry 3 https://getcomposer.org/installer -o "$installer"
+    expected=$(curl -fsSL --retry 3 https://composer.github.io/installer.sig)
+    [[ "$(sha384sum "$installer" | cut -d ' ' -f 1)" == "$expected" ]]
+    php "$installer" --quiet --install-dir="$temporary" --filename=composer.phar
+    sudo install -m 0755 "$temporary/composer.phar" /usr/local/bin/composer
+    rm -rf "$temporary"
+    trap - EXIT
+fi
+# Vite 8 requires Node 20.19+ or 22.12+; the orb base image supplies Node.
+node -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (!(major === 20 && minor >= 19 || major === 22 && minor >= 12 || major > 22)) { throw new Error("Vite requires Node 20.19+ or 22.12+"); }'
+php --version | head -1
+composer --version
+node --version
+
+step 'Installing locked PHP dependencies'
+composer install --prefer-dist --no-interaction --no-progress
+
+step 'Installing locked frontend dependencies'
+# A warm npm ci still replaces every package (~7s); npm install rewrites the lockfile name.
+fingerprint=$( { sha256sum package.json package-lock.json; node --version; ./npm --version; } | sha256sum | cut -d ' ' -f 1)
+if [[ ! -f node_modules/.amp-install-fingerprint ]] || [[ "$(cat node_modules/.amp-install-fingerprint)" != "$fingerprint" ]]; then
+    ./npm ci --prefer-offline --no-audit --no-fund
+    printf '%s\n' "$fingerprint" > node_modules/.amp-install-fingerprint
+else
+    echo 'Locked frontend dependencies already installed'
+fi
+
+step 'Preparing the isolated development environment'
+if [[ ! -f .env ]]; then
+    cp -- .env.example .env
+    sed -i \
+        -e 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' \
+        -e 's|^DB_DATABASE=.*|DB_DATABASE=database/orb.sqlite|' \
+        -e 's/^FILESYSTEM_DISK=.*/FILESYSTEM_DISK=local/' \
+        -e 's/^APIFY_API_TOKEN=.*/APIFY_API_TOKEN=/' .env
+fi
+mkdir -p storage/framework/{cache/data,sessions,views} storage/logs bootstrap/cache
+# Never migrate an externally configured database or invoke the destructive seeder.
+touch database/orb.sqlite
+DB_URL= DB_CONNECTION=sqlite DB_DATABASE="$PWD/database/orb.sqlite" ./rar migrate --force --no-interaction
+if grep -Eq '^APP_KEY=(""|\x27\x27)?$' .env; then
+    ./rar key:generate --no-interaction
+fi
+
+step 'Building frontend assets'
+./npm run build
+step 'Orb setup finished'

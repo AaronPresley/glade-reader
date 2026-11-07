@@ -1,0 +1,7 @@
+services:
+    web:
+        command: ./rar serve --host=0.0.0.0 --port="$PORT"
+        health: /login
+        portal:
+            title: Glade
+            description: Register a disposable account to explore the orb's isolated development database.

@@ -1,4 +1,7 @@
 #!/bin/bash
 
-docker compose exec node npm "$@"
+if [[ "${AMP_ORB:-}" == 1 ]]; then
+    exec npm "$@"
+fi
 
+docker compose exec node npm "$@"

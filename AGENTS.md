@@ -10,6 +10,7 @@ Keep all instructions in this file brief.
 
 ## Environment
 
+- In Amp orbs, also read [.agents/orb-context.md](.agents/orb-context.md).
 - Use `./npm`, `./run`, and `./rar` for npm, container shell, and Artisan commands.
 - A local queue worker may already be running; do not start another for verification unless explicitly needed.
 - When adding or changing environment variables, update `docs/dockge-setup.md` with the production Dockge configuration.
