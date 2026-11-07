@@ -70,6 +70,28 @@ it('resumes the bookmarklet after login without losing the original page', funct
     Bus::assertDispatched(ProcessSourceReferenceJob::class);
 });
 
+it('accepts an https signed bookmarklet through the http reverse proxy', function (): void {
+    Bus::fake();
+    $user = User::factory()->create();
+    URL::forceScheme('https');
+    $originalUrl = 'https://hunch.net/?p=13764006';
+    $captureUrl = URL::signedRoute('source-references.bookmarklet', ['user' => $user->id])
+        .'&url='.rawurlencode($originalUrl);
+    $proxyUrl = preg_replace('/^https:/', 'http:', $captureUrl);
+
+    $this->actingAs($user)->withHeaders(['X-Forwarded-Proto' => 'https']);
+    $this->get($proxyUrl)
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('captureUrl', $captureUrl));
+    $this->assertDatabaseCount('source_references', 0);
+
+    $this->post($proxyUrl, [], ['X-Inertia' => 'true'])
+        ->assertStatus(409)
+        ->assertHeader('X-Inertia-Location', $originalUrl);
+    $this->assertDatabaseHas('source_references', ['user_id' => $user->id, 'url' => $originalUrl]);
+    Bus::assertDispatched(ProcessSourceReferenceJob::class);
+});
+
 it('requires both the signed bookmarklet and its logged in owner on get and post', function (): void {
     Bus::fake();
     $owner = User::factory()->create();

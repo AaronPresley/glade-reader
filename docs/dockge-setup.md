@@ -186,6 +186,7 @@ The app container runs `php artisan migrate --force` at startup when `CONTAINER_
 - Amp orbs use an isolated SQLite database and local file storage by default; those development-only overrides do not change the Dockge environment above. See [.agents/orb-context.md](../.agents/orb-context.md) for the separate orb workflow.
 - Keep `SESSION_SECURE_COOKIE: "true"` when the app is served through HTTPS. Use `"false"` only for plain HTTP testing.
 - `SSL_MODE: "off"` is correct when TLS terminates at a NAS reverse proxy or another frontend proxy.
+- The reverse proxy must preserve the public `Host` and overwrite `X-Forwarded-Proto` with the browser's scheme (`https`). Laravel trusts this scheme header so signed bookmarklet URLs validate after TLS termination; keep the app port accessible only to the proxy.
 - The app listens on container port `8080`; change `APP_PORT` in Dockge's `.env` section if the NAS host port is already in use.
 - Database, cache, sessions, and queue state are stored in Postgres.
 - Queue work is split across three explicit `queue-*` services. Add or remove `queue-*` service entries to change worker count.
