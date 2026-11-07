@@ -64,6 +64,12 @@ class GetScreenshotFromUrlAction
             throw new RuntimeException('Apify screenshot actor run did not return a default dataset ID.');
         }
 
+        $storeId = $completedRun['defaultKeyValueStoreId'] ?? null;
+
+        if (! is_string($storeId) || $storeId === '') {
+            throw new RuntimeException('Apify screenshot actor run did not return a default key-value store ID.');
+        }
+
         $response = $client->get('/v2/datasets/'.$datasetId.'/items', [
             'query' => [
                 'format' => 'json',
@@ -71,7 +77,7 @@ class GetScreenshotFromUrlAction
             ],
         ]);
 
-        return $this->getScreenshotFromDatasetItems((string) $response->getBody());
+        return $this->getScreenshotFromDatasetItems($client, $storeId, (string) $response->getBody());
     }
 
     /**
@@ -96,7 +102,7 @@ class GetScreenshotFromUrlAction
                 'respectRobotsTxtFile' => false,
                 'pageFunction' => sprintf(<<<'JS'
 async function pageFunction(context) {
-    const { page, request, log } = context;
+    const { page, request, log, setValue } = context;
     const title = await page.title();
     log.info(`URL: ${request.url} TITLE: ${title}`);
 
@@ -107,16 +113,17 @@ async function pageFunction(context) {
     });
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const screenshotBase64 = await page.screenshot({
+    const screenshot = await page.screenshot({
         type: 'png',
-        fullPage: true,
-        encoding: 'base64'
+        fullPage: true
     });
+    const screenshotKey = 'screenshot.png';
+    await setValue(screenshotKey, Buffer.from(screenshot), { contentType: 'image/png' });
 
     return {
         url: request.url,
         title,
-        screenshotBase64
+        screenshotKey
     };
 }
 JS, self::VIEWPORT_WIDTH, self::VIEWPORT_HEIGHT),
@@ -226,7 +233,7 @@ JS,
     /**
      * @throws JsonException
      */
-    private function getScreenshotFromDatasetItems(string $body): string
+    private function getScreenshotFromDatasetItems(Client $client, string $storeId, string $body): string
     {
         $items = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
         $item = $items[0] ?? null;
@@ -239,15 +246,16 @@ JS,
             throw new RuntimeException('Apify screenshot actor returned an error for the requested URL.');
         }
 
-        $screenshotBase64 = $item['screenshotBase64'] ?? null;
+        $screenshotKey = $item['screenshotKey'] ?? null;
 
-        if (! is_string($screenshotBase64) || $screenshotBase64 === '') {
-            throw new RuntimeException('Apify screenshot actor did not return screenshot content.');
+        if (! is_string($screenshotKey) || $screenshotKey === '') {
+            throw new RuntimeException('Apify screenshot actor did not return a screenshot key.');
         }
 
-        $screenshot = base64_decode($screenshotBase64, true);
+        $response = $client->get('/v2/key-value-stores/'.rawurlencode($storeId).'/records/'.rawurlencode($screenshotKey));
+        $screenshot = (string) $response->getBody();
 
-        if (! is_string($screenshot)) {
+        if ($screenshot === '' || $response->getHeaderLine('Content-Type') !== 'image/png') {
             throw new RuntimeException('Apify screenshot actor returned invalid screenshot content.');
         }
 
