@@ -39,7 +39,7 @@ class GetSourceReferenceScreenshotJob implements ShouldQueue
 
         $requestedAt = $this->sourceReference->created_at ?? now();
         $path = sprintf(
-            '%s/source-references/%s-%s.png',
+            '%s/source-references/%s-%s.jpg',
             app()->environment(),
             $requestedAt->format('Y-m-d-H-i-s'),
             $this->sourceReference->id,

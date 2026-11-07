@@ -102,7 +102,7 @@ class GetScreenshotFromUrlAction
                 'respectRobotsTxtFile' => false,
                 'pageFunction' => sprintf(<<<'JS'
 async function pageFunction(context) {
-    const { page, request, log, setValue } = context;
+    const { page, request, log } = context;
     const title = await page.title();
     log.info(`URL: ${request.url} TITLE: ${title}`);
 
@@ -114,11 +114,12 @@ async function pageFunction(context) {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     const screenshot = await page.screenshot({
-        type: 'png',
+        type: 'jpeg',
+        quality: 85,
         fullPage: true
     });
-    const screenshotKey = 'screenshot.png';
-    await setValue(screenshotKey, Buffer.from(screenshot), { contentType: 'image/png' });
+    const screenshotKey = 'screenshot.jpg';
+    await context.setValue(screenshotKey, Buffer.from(screenshot), { contentType: 'image/jpeg' });
 
     return {
         url: request.url,
@@ -255,7 +256,7 @@ JS,
         $response = $client->get('/v2/key-value-stores/'.rawurlencode($storeId).'/records/'.rawurlencode($screenshotKey));
         $screenshot = (string) $response->getBody();
 
-        if ($screenshot === '' || $response->getHeaderLine('Content-Type') !== 'image/png') {
+        if ($screenshot === '' || $response->getHeaderLine('Content-Type') !== 'image/jpeg') {
             throw new RuntimeException('Apify screenshot actor returned invalid screenshot content.');
         }
 

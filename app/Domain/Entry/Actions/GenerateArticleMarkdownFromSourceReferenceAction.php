@@ -59,6 +59,8 @@ class GenerateArticleMarkdownFromSourceReferenceAction
             throw new RuntimeException('Unable to read source reference screenshot.');
         }
 
+        $screenshotMimeType = Storage::mimeType($screenshotPath);
+
         [$promptRawHtml, $rawHtmlTruncated] = $this->promptRawHtml($rawHtml);
 
         $client = new Client([
@@ -89,7 +91,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
                             [
                                 'type' => 'image_url',
                                 'image_url' => [
-                                    'url' => 'data:image/png;base64,'.base64_encode($screenshot),
+                                    'url' => 'data:'.$screenshotMimeType.';base64,'.base64_encode($screenshot),
                                 ],
                             ],
                         ],
