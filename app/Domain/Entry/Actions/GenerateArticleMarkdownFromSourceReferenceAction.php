@@ -79,7 +79,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => 'You convert captured web source material into accurate, high-quality Markdown. Return only Markdown.',
+                        'content' => 'Extract article content exclusively from supplied HTML into accurate, high-quality Markdown. Screenshots are layout references only, never text sources. Return only Markdown.',
                     ],
                     [
                         'role' => 'user',
@@ -143,13 +143,19 @@ class GenerateArticleMarkdownFromSourceReferenceAction
     private function prompt(SourceReference $sourceReference, string $rawHtml, bool $rawHtmlTruncated): string
     {
         $truncationNote = $rawHtmlTruncated
-            ? "\n\nThe raw HTML was truncated for request size; use the screenshot to recover visible structure and context where possible."
+            ? "\n\nThe raw HTML was truncated for request size. Extract only article content supported by the supplied HTML. Do not recover missing text from the screenshot or invent a continuation."
             : '';
 
         return <<<PROMPT
-The raw HTML below and the screenshot image are the same source material. Use both inputs: raw HTML for text, links, and structure; screenshot for visual hierarchy and visible page context.
+Convert the main article in the supplied raw HTML into Markdown.
 
-Return high-quality Markdown only. Do not include commentary, extraction notes, or code fences around the final answer. Preserve meaningful headings, paragraphs, lists, tables, quotes, and links. Omit navigation, cookie banners, scripts, styles, and duplicate boilerplate.
+The raw HTML is the sole source of article content. Extract all wording, headings, paragraphs, lists, tables, quotations, captions, and link destinations from the HTML. Preserve the article's wording and meaningful structure; do not summarize or invent missing content.
+
+Consult the screenshot only when the HTML leaves uncertainty about layout or which page elements belong to the article—for example, distinguishing the article body from a popup, cookie banner, advertisement, sidebar, or navigation. Use it only to classify page regions and clarify layout.
+
+Never transcribe, OCR, reconstruct, correct, or supplement article text from the screenshot. Text visible only in the screenshot must not appear in the output. Include article content present in the HTML even when it is outside the screenshot or obscured by an overlay.
+
+Return high-quality Markdown only. Do not include commentary, extraction notes, or code fences around the final answer. Omit unrelated page elements, scripts, styles, and duplicate boilerplate.
 
 Source URL: {$sourceReference->url}{$truncationNote}
 
