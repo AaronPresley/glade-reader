@@ -1,3 +1,4 @@
+import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@inertiajs/react';
 
 type SourceReference = {
@@ -16,8 +17,8 @@ export default function SourceReferencesIndex({ sourceReferences }: Props) {
         <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
                 <h2 className="text-lg font-medium">Sources</h2>
-                <Link href="/source-references/create" className="underline underline-offset-4">
-                    Set up bookmarklet
+                <Link href="/source-references/create" className={buttonVariants()}>
+                    Add URL
                 </Link>
             </div>
 

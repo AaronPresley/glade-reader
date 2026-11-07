@@ -3,27 +3,16 @@
 namespace App\Domain\SourceReference\Requests;
 
 use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Inertia\Inertia;
 
-class BookmarkletSourceReferenceRequest extends FormRequest
+class BookmarkletSourceReferenceRequest extends CheckSourceReferenceRequest
 {
     public function authorize(): bool
     {
         // Only the captured URL is variable; the signature binds the endpoint and owner.
         return (string) $this->user()->id === $this->route('user')
             && $this->hasValidSignatureWhileIgnoring(['url']);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function rules(): array
-    {
-        return [
-            'url' => ['required', 'string', 'url:http,https', 'max:2048'],
-        ];
     }
 
     protected function failedValidation(Validator $validator): void

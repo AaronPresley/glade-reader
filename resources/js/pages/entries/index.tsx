@@ -138,8 +138,8 @@ export default function EntriesIndex({ unarchivedEntries, archivedEntries, sourc
         <div className="space-y-6">
             <div className="flex items-center justify-between gap-4">
                 <h2 className="text-lg font-medium">Entries</h2>
-                <Link href="/source-references/create" className="underline underline-offset-4">
-                    Set up bookmarklet
+                <Link href="/source-references/create" className={buttonVariants()}>
+                    Add URL
                 </Link>
             </div>
 

@@ -24,6 +24,7 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('/entries/{entry}', [EntryController::class, 'destroy'])->whereNumber('entry')->name('entries.destroy');
     Route::get('/source-references', [SourceReferenceController::class, 'index'])->name('source-references.index');
     Route::get('/source-references/create', [SourceReferenceController::class, 'create'])->name('source-references.create');
+    Route::post('/source-references', [SourceReferenceController::class, 'store'])->name('source-references.store');
     Route::match(['get', 'post'], '/source-references/bookmarklet/{user}', BookmarkletSourceReferenceController::class)
         ->whereNumber('user')
         ->name('source-references.bookmarklet');

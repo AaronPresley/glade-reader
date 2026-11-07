@@ -4,6 +4,7 @@ use App\Domain\Entry\Enums\EntryStatus;
 use App\Domain\Entry\Enums\EntryType;
 use App\Domain\Entry\Models\Entry;
 use App\Domain\SourceReference\Enums\SourceReferenceStatus;
+use App\Domain\SourceReference\Jobs\ProcessSourceReferenceJob;
 use App\Domain\SourceReference\Models\SourceReference;
 use App\Domain\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,6 +17,7 @@ uses(RefreshDatabase::class);
 it('requires authentication for source references', function (): void {
     $this->get('/source-references')->assertRedirect('/login');
     $this->get('/source-references/create')->assertRedirect('/login');
+    $this->post('/source-references', ['url' => 'https://example.com/source'])->assertRedirect('/login');
 });
 
 it('shows the authenticated users source references', function (): void {
@@ -45,7 +47,7 @@ it('shows the authenticated users source references', function (): void {
             ->where('sourceReferences.0.status', SourceReferenceStatus::Completed->value));
 });
 
-it('does not accept links outside the bookmarklet flow', function (): void {
+it('does not accept public token-based link submissions', function (): void {
     Bus::fake();
     $publicUrl = '/add/'.str_repeat('a', 64).'?url='.rawurlencode('https://example.com/source');
 
@@ -56,8 +58,40 @@ it('does not accept links outside the bookmarklet flow', function (): void {
     $this->actingAs(User::factory()->create());
     $this->get($publicUrl)->assertNotFound();
     $this->post($publicUrl)->assertNotFound();
-    $this->post('/source-references', ['url' => 'https://example.com/source'])->assertStatus(405);
     $this->post('/source-references/share-token/regenerate')->assertNotFound();
+
+    $this->assertDatabaseCount('source_references', 0);
+    Bus::assertNothingDispatched();
+});
+
+it('saves a pasted url for the authenticated user and queues processing', function (): void {
+    Bus::fake();
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $url = 'https://example.com/article?a=1&b=two%20words#section';
+
+    $this->actingAs($user)->post('/source-references', [
+        'url' => $url,
+        'user_id' => $otherUser->id,
+    ])->assertRedirect(route('entries.index'));
+
+    $this->assertDatabaseCount('source_references', 1);
+    $this->assertDatabaseHas('source_references', [
+        'user_id' => $user->id,
+        'url' => $url,
+        'status' => SourceReferenceStatus::New->value,
+    ]);
+    Bus::assertDispatched(ProcessSourceReferenceJob::class);
+});
+
+it('rejects invalid pasted urls without saving or queuing', function (): void {
+    Bus::fake();
+
+    $this->actingAs(User::factory()->create())
+        ->from('/source-references/create')
+        ->post('/source-references', ['url' => 'ftp://example.com/article'])
+        ->assertRedirect('/source-references/create')
+        ->assertSessionHasErrors('url');
 
     $this->assertDatabaseCount('source_references', 0);
     Bus::assertNothingDispatched();

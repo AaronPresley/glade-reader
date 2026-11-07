@@ -4,8 +4,10 @@ namespace App\Domain\SourceReference\Controllers;
 
 use App\Domain\Entry\Enums\EntryType;
 use App\Domain\Entry\Models\Entry;
+use App\Domain\SourceReference\Actions\CheckSourceReference;
 use App\Domain\SourceReference\Actions\DeleteSourceReferenceAction;
 use App\Domain\SourceReference\Models\SourceReference;
+use App\Domain\SourceReference\Requests\CheckSourceReferenceRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,6 +43,16 @@ class SourceReferenceController extends Controller
                 'user' => $request->user()->id,
             ]),
         ]);
+    }
+
+    public function store(CheckSourceReferenceRequest $request, CheckSourceReference $checkSourceReference): RedirectResponse
+    {
+        $checkSourceReference->handle(
+            user: $request->user(),
+            url: $request->validated('url'),
+        );
+
+        return redirect()->route('entries.index');
     }
 
     public function show(Request $request, SourceReference $sourceReference): Response
