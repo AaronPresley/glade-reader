@@ -12,6 +12,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,6 +47,9 @@ class SourceReferenceController extends Controller
             'addSourceReferenceUrl' => $addSourceReferenceUrl,
             'addSourceReferenceUrlTemplate' => "{$addSourceReferenceUrl}?url={url}",
             'regenerateShareTokenUrl' => route('source-references.share-token.regenerate'),
+            'bookmarkletUrl' => URL::signedRoute('source-references.bookmarklet', [
+                'user' => $request->user()->id,
+            ]),
         ]);
     }
 

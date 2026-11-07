@@ -3,6 +3,7 @@
 use App\Domain\Entry\Controllers\EntryController;
 use App\Domain\Entry\Controllers\SourceReferenceArticleEntryController;
 use App\Domain\SourceReference\Controllers\AddSourceReferenceController;
+use App\Domain\SourceReference\Controllers\BookmarkletSourceReferenceController;
 use App\Domain\SourceReference\Controllers\SourceReferenceController;
 use App\Domain\SourceReference\Controllers\SourceReferenceShareTokenController;
 use App\Domain\User\Controllers\LoginController;
@@ -31,6 +32,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/source-references', [SourceReferenceController::class, 'store'])->name('source-references.store');
     Route::post('/source-references/share-token/regenerate', SourceReferenceShareTokenController::class)
         ->name('source-references.share-token.regenerate');
+    Route::match(['get', 'post'], '/source-references/bookmarklet/{user}', BookmarkletSourceReferenceController::class)
+        ->whereNumber('user')
+        ->name('source-references.bookmarklet');
     Route::post('/source-references/{sourceReference}/entries/article', [SourceReferenceArticleEntryController::class, 'store'])
         ->name('source-references.entries.article.store');
     Route::get('/source-references/{sourceReference}', [SourceReferenceController::class, 'show'])->name('source-references.show');

@@ -1,16 +1,18 @@
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Link, useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
 
 type Props = {
+    bookmarkletUrl: string;
     shareUrl?: string | null;
     addSourceReferenceUrlTemplate?: string | null;
     regenerateShareTokenUrl?: string | null;
 };
 
 export default function SourceReferencesCreate({
+    bookmarkletUrl,
     shareUrl,
     addSourceReferenceUrlTemplate,
     regenerateShareTokenUrl,
@@ -34,7 +36,11 @@ export default function SourceReferencesCreate({
             return;
         }
 
-        if (!window.confirm('Regenerate the unauthenticated add link? Existing links and saved usages will stop working.')) {
+        if (
+            !window.confirm(
+                'Regenerate the unauthenticated add link? Existing links and saved usages will stop working.',
+            )
+        ) {
             return;
         }
 
@@ -46,6 +52,34 @@ export default function SourceReferencesCreate({
             <Link href="/entries" className="underline underline-offset-4">
                 Entries
             </Link>
+
+            <section className="space-y-3 border-b pb-4" aria-labelledby="bookmarklet-heading">
+                <h2 id="bookmarklet-heading" className="font-medium">
+                    Save from your browser
+                </h2>
+                <a
+                    ref={(link) => {
+                        // React blocks javascript: href props; this native link is intentionally a bookmarklet.
+                        link?.setAttribute(
+                            'href',
+                            `javascript:void(function(){if(!/^https?:$/.test(location.protocol)){alert('Glade can only save HTTP or HTTPS pages.');return;}location.assign(${JSON.stringify(bookmarkletUrl)}+'&url='+encodeURIComponent(location.href));}())`,
+                        );
+                    }}
+                    draggable
+                    onClick={(event) => event.preventDefault()}
+                    className={buttonVariants({ variant: 'outline' })}
+                    title="Drag this link to your bookmarks bar"
+                >
+                    Save to Glade
+                </a>
+                <p className="text-sm text-muted-foreground">
+                    Drag this link to your bookmarks bar. Click the bookmark on any page to save it to Glade, then
+                    return to that page. If you’re signed out, you’ll log in first.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    This bookmark is personal to your account. Don’t share it.
+                </p>
+            </section>
 
             {shareUrlTemplate && (
                 <div className="space-y-3 border-b pb-4">
