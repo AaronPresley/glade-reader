@@ -139,7 +139,7 @@ export default function EntriesIndex({ unarchivedEntries, archivedEntries, sourc
             <div className="flex items-center justify-between gap-4">
                 <h2 className="text-lg font-medium">Entries</h2>
                 <Link href="/source-references/create" className="underline underline-offset-4">
-                    Create
+                    Set up bookmarklet
                 </Link>
             </div>
 

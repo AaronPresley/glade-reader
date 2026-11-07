@@ -17,7 +17,7 @@ export default function SourceReferencesIndex({ sourceReferences }: Props) {
             <div className="flex items-center justify-between gap-4">
                 <h2 className="text-lg font-medium">Sources</h2>
                 <Link href="/source-references/create" className="underline underline-offset-4">
-                    Create
+                    Set up bookmarklet
                 </Link>
             </div>
 
