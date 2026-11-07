@@ -1,6 +1,16 @@
 # Dockge Production Setup
 
-This app is built for production with `bin/docker-build`. The script publishes two Docker Hub images from the same tag:
+Merges and other pushes to `main` run the full Pest unit, feature, and domain test suites before building and pushing both production images through GitHub Actions. Pull requests to `main` run the same tests without publishing.
+
+The workflow publishes `linux/amd64` images as `aaronpresley/glade-reader-web:latest` and `aaronpresley/glade-reader-cli:latest`, plus `sha-<full-commit-sha>` tags for each image. GitHub Actions requires the repository secret `DOCKERHUB_TOKEN`, a Docker Hub personal access token for `aaronpresley` with write access to both repositories. Configure this secret in GitHub, not Dockge.
+
+To set or replace the token, create a Docker Hub personal access token with Read & Write permissions, then run this command and paste the token at the hidden prompt:
+
+```bash
+gh secret set DOCKERHUB_TOKEN --repo AaronPresley/glade-reader
+```
+
+For manual versioned builds, use `bin/docker-build`. The script publishes two Docker Hub images from the same tag:
 
 - `aaronpresley/glade-reader-web:<tag>` and `aaronpresley/glade-reader-web:latest`
 - `aaronpresley/glade-reader-cli:<tag>` and `aaronpresley/glade-reader-cli:latest`
@@ -157,7 +167,7 @@ com.centurylinklabs.watchtower.enable: 'true'
 
 That keeps the watcher scoped to the Glade web, queue, and scheduler containers instead of updating every container on the NAS.
 
-When `bin/docker-build` publishes a new tag, it also moves both `latest` tags to that build. Lighthouse will detect the changed `latest` image digest, pull the new `-web` and `-cli` images, and recreate the labeled containers.
+GitHub Actions and `bin/docker-build` both update the `latest` tags when publishing. Lighthouse will detect the changed `latest` image digest, pull the new `-web` and `-cli` images, and recreate the labeled containers.
 
 ## First Deploy
 
