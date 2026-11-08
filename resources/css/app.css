@@ -311,6 +311,9 @@
     .book-prose video {
         @apply my-8 h-auto max-w-full rounded;
     }
+    .book-prose img {
+        @apply block w-full;
+    }
     .book-prose table {
         @apply my-6 block max-w-full overflow-x-auto text-base;
     }

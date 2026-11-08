@@ -80,9 +80,15 @@ export default function EntriesRead({ entry }: Props) {
                             const safeUrl = defaultUrlTransform(url);
 
                             // Match the sanitizer's ID prefix so footnote and other fragment links still work.
-                            return key === 'href' && safeUrl.startsWith('#')
-                                ? `#${defaultSchema.clobberPrefix}${safeUrl.slice(1)}`
-                                : safeUrl;
+                            if (key === 'href' && safeUrl.startsWith('#')) {
+                                return `#${defaultSchema.clobberPrefix}${safeUrl.slice(1)}`;
+                            }
+
+                            if (safeUrl && entry.source_reference && (key === 'href' || key === 'src')) {
+                                return new URL(safeUrl, entry.source_reference.url).href;
+                            }
+
+                            return safeUrl;
                         }}
                     >
                         {entry.content ?? ''}
