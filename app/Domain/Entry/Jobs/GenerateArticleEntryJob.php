@@ -43,6 +43,7 @@ class GenerateArticleEntryJob implements ShouldQueue
                 'model' => $result['model'],
                 'usage' => $result['usage'],
                 'raw_html_truncated' => $result['raw_html_truncated'],
+                'extraction' => $result['extraction'] ?? null,
                 'error' => null,
             ]);
             // Keep the layout and URL base with the content they describe. Future site

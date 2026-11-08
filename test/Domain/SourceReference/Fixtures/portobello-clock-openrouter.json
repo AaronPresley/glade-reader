@@ -1,0 +1,15 @@
+{
+    "choices": [
+        {
+            "finish_reason": "stop",
+            "message": {
+                "role": "assistant",
+                "content": "{\"version\":1,\"objects\":[{\"type\":\"article\",\"patterns\":[\"~(?<content><h1[^>]*>)~i\",\"~<h1[^>]*>.*?</a>(?<content>[^<]+</h1>)~is\",\"~<div class=\\\"content\\\">(?<content>.*?)</div>\\\\s*<footer\\\\b~is\"]}]}"
+            }
+        }
+    ],
+    "model": "fixture-model",
+    "usage": {
+        "total_tokens": 42
+    }
+}

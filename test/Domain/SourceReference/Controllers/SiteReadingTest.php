@@ -50,7 +50,7 @@ function siteReadingScreenshotResponses(): array
     ];
 }
 
-function siteReadingHtmlResponses(string $html = '<article><h1>Linked article</h1><p>Publisher body, not comments.</p></article>'): array
+function siteReadingHtmlResponses(string $html = '<article><h1>Linked article</h1><p>Publisher body, not comments.</p><p><a href="../next">Next</a></p><img alt="Diagram" src="/images/chart.svg"></article>'): array
 {
     return [
         siteReadingJson(['data' => ['id' => 'html-run']]),
@@ -59,10 +59,13 @@ function siteReadingHtmlResponses(string $html = '<article><h1>Linked article</h
     ];
 }
 
-function siteReadingMarkdownResponse(): Response
+function siteReadingPlanResponse(?array $objects = null): Response
 {
     return siteReadingJson([
-        'choices' => [['message' => ['content' => "# Linked article\n\nPublisher body, not comments.\n\n[Next](../next)\n\n![Diagram](/images/chart.svg)"]]],
+        'choices' => [['finish_reason' => 'stop', 'message' => ['content' => json_encode([
+            'version' => 1,
+            'objects' => $objects ?? [['type' => 'article', 'patterns' => ['~<article\b[^>]*>(?<content>.*?)</article>~is']]],
+        ])]]],
         'model' => 'fixture-model',
         'usage' => ['total_tokens' => 42],
     ]);
@@ -86,7 +89,7 @@ it('processes a saved URL through real jobs and provider adapters without networ
     ])]);
     $history = [];
     fakeSiteReadingProviders([
-        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses(), siteReadingMarkdownResponse(),
+        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses(), siteReadingPlanResponse(),
     ], $history);
 
     $this->post('/source-references', ['url' => $url])->assertRedirect('/entries');
@@ -131,11 +134,11 @@ it('processes a saved URL through real jobs and provider adapters without networ
     'HN' => ['https://news.ycombinator.com/item?id=50399933', 'hacker-news'],
 ]);
 
-it('sends the entire captured HTML to generation for large pages', function (): void {
+it('extracts the entire long article locally from a small provider plan', function (): void {
     $html = '<article><p>'.str_repeat('Full article text. ', 10000).'</p><p>Final paragraph beyond the old limit.</p></article>';
     $history = [];
     fakeSiteReadingProviders([
-        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html), siteReadingMarkdownResponse(),
+        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html), siteReadingPlanResponse(),
     ], $history);
 
     $this->post('/source-references', ['url' => 'https://publisher.example.com/long-article'])->assertRedirect();
@@ -143,7 +146,113 @@ it('sends the entire captured HTML to generation for large pages', function (): 
     $prompt = json_decode((string) $history[7]['request']->getBody(), true)['messages'][1]['content'][0]['text'];
     expect($prompt)->toContain($html)
         ->and(Entry::firstOrFail()->status)->toBe(EntryStatus::Completed)
+        ->and(Entry::firstOrFail()->content)->toContain('Final paragraph beyond the old limit.')
+        ->and(substr_count(Entry::firstOrFail()->content, 'Full article text.'))->toBe(10000)
         ->and(Entry::firstOrFail()->metadata['generation']['raw_html_truncated'])->toBeFalse();
+});
+
+it('generates an article from saved HTML and screenshot fixtures with a mocked regex plan', function (): void {
+    $fixture = __DIR__.'/../Fixtures/portobello-clock';
+    $html = file_get_contents($fixture.'.html.fixture');
+    $screenshot = file_get_contents($fixture.'.jpg');
+    Storage::put('fixture.jpg', $screenshot);
+    $source = SourceReference::create([
+        'user_id' => auth()->id(),
+        'url' => 'https://pointinthecloud.com/2026-04-11-211700.html',
+        'status' => SourceReferenceStatus::Completed,
+        'raw_content' => $html,
+        'screenshot_path' => 'fixture.jpg',
+    ]);
+    $history = [];
+    fakeSiteReadingProviders([
+        new Response(200, ['Content-Type' => 'application/json'], file_get_contents($fixture.'-openrouter.json')),
+    ], $history);
+
+    $this->post('/source-references/'.$source->id.'/entries/article')->assertRedirect();
+
+    $entry = Entry::firstOrFail();
+    expect($entry->status)->toBe(EntryStatus::Completed)
+        ->and($entry->content)->toContain(
+            'Fixing the Portobello Police Station Clock',
+            '### Setting the clock',
+            '### Setting the chime',
+            '### It was fun',
+            'Maybe I can go back and become more involved.',
+            '[Porty Pride](https://portypride.com)',
+            'media/PXL_20260411_150433725-6.jpg',
+            '- Make it chime 13 at Halloween.',
+        )
+        ->and($entry->content)->not->toContain('Go to the beginning', 'Contact me', 'rosie-flying-dog.jpg')
+        ->and(strpos($entry->content, '### Setting the clock'))->toBeLessThan(strpos($entry->content, '### Setting the chime'))
+        ->and($entry->metadata['generation']['extraction']['source_sha256'])->toBe(hash('sha256', $html))
+        ->and($entry->metadata['generation']['extraction']['plan']['objects'][0]['patterns'])->toHaveCount(3);
+
+    // Only the planned OpenRouter request is mocked: a stray provider/capture call
+    // exhausts the handler. Both captured inputs come from disk, never live services.
+    expect($history)->toHaveCount(1);
+    $payload = json_decode((string) $history[0]['request']->getBody(), true);
+    expect($payload['messages'][1]['content'][0]['text'])->toContain($html)
+        ->and($payload['messages'][1]['content'][1]['image_url']['url'])->toBe('data:image/jpeg;base64,'.base64_encode($screenshot));
+    Http::assertNothingSent();
+
+    $this->get('/entries/'.$entry->id)->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('entries/read')
+        ->where('entry.content', $entry->content));
+
+    $user = auth()->user();
+    $this->withToken($user->createToken('Fixture reader', ['read'])->plainTextToken)
+        ->getJson('/api/entries/'.$entry->id)->assertOk()
+        ->assertJsonPath('data.content_html', fn (string $html): bool => str_contains($html, '<h3>It was fun</h3>')
+            && str_contains($html, '<h1>Fixing the Portobello Police Station Clock</h1>')
+            && substr_count($html, '<img ') === 9
+            && ! str_contains($html, '### '));
+});
+
+it('assembles multiple article objects and repeated matches in plan order', function (): void {
+    $html = <<<'HTML'
+<h1>First in source, last in the plan</h1>
+<article><p>Second in source.</p><p>Third in source.</p>
+<pre><code class="language-php">if ($ready) {
+    echo "&lt;done&gt;";
+}</code></pre>
+<table><tr><th>Item</th><th>Count</th></tr><tr><td>Widgets</td><td>7</td></tr></table>
+<script>Unrelated script wording</script><style>Unrelated style wording</style></article>
+HTML;
+    $history = [];
+    fakeSiteReadingProviders([
+        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html),
+        siteReadingPlanResponse([
+            ['type' => 'article', 'patterns' => ['~(?<content><p>.*?</p>)~s', '~(?<content><pre>.*?</pre>)~s']],
+            ['type' => 'article', 'patterns' => ['~(?<content><table>.*?</table>\s*<script>.*?</script><style>.*?</style>)~s', '~(?<content><h1>.*?</h1>)~s']],
+        ]),
+    ], $history);
+
+    $this->post('/source-references', ['url' => 'https://publisher.example.com/multiple-regions'])->assertRedirect();
+
+    $entry = Entry::firstOrFail();
+    expect($entry->status)->toBe(EntryStatus::Completed)
+        ->and($entry->content)->toStartWith("Second in source.\n\nThird in source.")
+        ->and($entry->content)->toContain("```php\nif (\$ready) {\n    echo \"<done>\";\n}", '<table>', '<td>7</td>')
+        ->and($entry->content)->toEndWith('# First in source, last in the plan')
+        ->and($entry->content)->not->toContain('Unrelated script wording', 'Unrelated style wording');
+});
+
+it('fails generation rather than publishing duplicated content from overlapping patterns', function (): void {
+    $history = [];
+    fakeSiteReadingProviders([
+        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses(),
+        siteReadingPlanResponse([['type' => 'article', 'patterns' => [
+            '~(?<content><article>.*?</article>)~s',
+            '~(?<content><h1>.*?</h1>)~s',
+        ]]]),
+    ], $history);
+
+    $this->post('/source-references', ['url' => 'https://publisher.example.com/overlap'])->assertRedirect();
+
+    $entry = Entry::firstOrFail();
+    expect($entry->status)->toBe(EntryStatus::Failed)
+        ->and($entry->content)->toBeNull()
+        ->and($entry->metadata['generation']['error'])->toContain('overlapping content');
 });
 
 it('extracts only the story text for text-only Hacker News posts', function (): void {
@@ -152,7 +261,7 @@ it('extracts only the story text for text-only Hacker News posts', function (): 
         'text' => '<p>My original question.</p>', 'kids' => [99],
     ])]);
     $history = [];
-    fakeSiteReadingProviders([...siteReadingScreenshotResponses(), siteReadingMarkdownResponse()], $history);
+    fakeSiteReadingProviders([...siteReadingScreenshotResponses(), siteReadingPlanResponse()], $history);
 
     $this->post('/source-references', ['url' => 'https://news.ycombinator.com/item?id=42'])->assertRedirect();
 
@@ -205,7 +314,7 @@ it('records HN transport failures without using the discussion as an article', f
 
 it('does not match lookalike hosts or non-item HN paths', function (string $url): void {
     $history = [];
-    fakeSiteReadingProviders([...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses(), siteReadingMarkdownResponse()], $history);
+    fakeSiteReadingProviders([...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses(), siteReadingPlanResponse()], $history);
     $this->post('/source-references', ['url' => $url])->assertRedirect();
     expect(SourceReference::firstOrFail()->metadata['reading']['profile'])->toBe('default');
     Http::assertNothingSent();
@@ -274,7 +383,7 @@ it('can retry failed generation using the persisted article target without resol
     $history = [];
     fakeSiteReadingProviders([
         ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses(),
-        siteReadingJson(['error' => 'unavailable'], 503), siteReadingMarkdownResponse(),
+        siteReadingJson(['error' => 'unavailable'], 503), siteReadingPlanResponse(),
     ], $history);
     $this->post('/source-references', ['url' => 'https://news.ycombinator.com/item?id=42'])->assertRedirect();
     $source = SourceReference::firstOrFail();
