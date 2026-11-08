@@ -11,3 +11,6 @@ Route::middleware(['auth:sanctum', CheckAbilities::class.':read', 'throttle:60,1
     Route::get('/source-references', [ApiSourceReferenceController::class, 'index']);
     Route::get('/source-references/{sourceReference}', [ApiSourceReferenceController::class, 'show'])->whereNumber('sourceReference');
 });
+
+Route::post('/source-references', [ApiSourceReferenceController::class, 'store'])
+    ->middleware(['auth:sanctum', CheckAbilities::class.':sources:create', 'throttle:60,1']);

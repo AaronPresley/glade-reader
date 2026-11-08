@@ -62,12 +62,12 @@ it('reads only owned entries including archived entries and rendered HTML', func
         ->assertJsonPath('data.status', 'PROCESSING')->assertJsonPath('data.content_html', null);
 });
 
-it('exposes no API write or user endpoints', function (): void {
+it('exposes no other API write or user endpoints', function (): void {
     $user = User::factory()->create();
-    $this->withToken($user->createToken('Reader', ['read'])->plainTextToken);
+    $this->withToken($user->createToken('Integration', ['read', 'sources:create'])->plainTextToken);
 
+    $this->postJson('/api/entries', [])->assertStatus(405);
     foreach (['entries', 'source-references'] as $resource) {
-        $this->postJson('/api/'.$resource, [])->assertStatus(405);
         $this->putJson('/api/'.$resource.'/1', [])->assertStatus(405);
         $this->patchJson('/api/'.$resource.'/1', [])->assertStatus(405);
         $this->deleteJson('/api/'.$resource.'/1')->assertStatus(405);

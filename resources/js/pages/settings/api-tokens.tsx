@@ -7,6 +7,7 @@ import { useState, type FormEvent } from 'react';
 type Token = {
     id: number;
     name: string;
+    abilities: string[];
     created_at: string | null;
     last_used_at: string | null;
 };
@@ -42,8 +43,11 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
             <div className="space-y-2">
                 <h2 className="text-xl font-medium">API tokens</h2>
                 <p className="text-sm text-muted-foreground">
-                    Give your integrations read-only access to your sources and entries. Tokens cannot change data or
-                    access users. Keep them private; they remain valid until revoked.
+                    Give your integrations access to read your sources and entries and add new URLs. Tokens cannot edit
+                    or delete data or access users. Keep them private; they remain valid until revoked.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Older read-only tokens cannot add URLs. Generate a new token to enable URL submission.
                 </p>
             </div>
 
@@ -114,8 +118,10 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
                                 <div className="min-w-0 space-y-1">
                                     <p className="break-words font-medium">{token.name}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        Read-only · Created{' '}
-                                        {token.created_at ? new Date(token.created_at).toLocaleString() : '—'}
+                                        {token.abilities.includes('sources:create') || token.abilities.includes('*')
+                                            ? 'Read + add URLs'
+                                            : 'Read-only'}{' '}
+                                        · Created {token.created_at ? new Date(token.created_at).toLocaleString() : '—'}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
                                         Last used{' '}
@@ -163,7 +169,15 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
                     <li>
                         <code>GET /api/source-references</code> and <code>/api/source-references/&#123;id&#125;</code>
                     </li>
+                    <li>
+                        <code>POST /api/source-references</code> with JSON{' '}
+                        <code>{'{"url":"https://example.com/article"}'}</code>
+                    </li>
                 </ul>
+                <p className="text-sm text-muted-foreground">
+                    Adding a URL requires the <code>sources:create</code> permission and returns the new source with
+                    status 201. Processing runs in the background; use the source’s ID to check its progress.
+                </p>
                 <p className="text-sm text-muted-foreground">
                     Entries include Markdown in <code>content</code> and rendered HTML in <code>content_html</code>.
                     Sources include captured HTML in <code>raw_content</code>. Source HTML is untrusted; don’t embed it

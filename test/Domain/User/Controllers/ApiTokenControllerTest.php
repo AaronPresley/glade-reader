@@ -13,16 +13,17 @@ it('requires a browser login to manage tokens', function (): void {
     $this->delete('/settings/api-tokens/1')->assertRedirect('/login');
 });
 
-it('generates a usable read-only token and only reveals its secret once', function (): void {
+it('generates a usable read and add URLs token and only reveals its secret once', function (): void {
     $user = User::factory()->create();
     $this->actingAs($user, 'web')->post('/settings/api-tokens', ['name' => 'My integration', 'abilities' => ['*']])
         ->assertRedirect('/settings/api-tokens');
     $response = $this->get('/settings/api-tokens')->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('settings/api-tokens')
             ->has('tokens', 1)->where('tokens.0.name', 'My integration')
+            ->where('tokens.0.abilities', ['read', 'sources:create'])
             ->missing('tokens.0.token')->missing('tokens.0.tokenable_id')->hasFlash('newToken'));
     $secret = $response->viewData('page')['flash']['newToken'];
-    expect(PersonalAccessToken::findToken($secret)->abilities)->toBe(['read']);
+    expect(PersonalAccessToken::findToken($secret)->abilities)->toBe(['read', 'sources:create']);
     $this->get('/settings/api-tokens')->assertInertia(fn (Assert $page) => $page->missingFlash('newToken'));
 
     $this->app['auth']->forgetGuards();
@@ -40,6 +41,7 @@ it('validates names and keeps token management scoped to the owner', function ()
     $otherToken = $other->createToken('Private integration', ['read']);
     $this->actingAs($user, 'web')->get('/settings/api-tokens')
         ->assertInertia(fn (Assert $page) => $page->has('tokens', 1)->where('tokens.0.name', 'Mine')
+            ->where('tokens.0.abilities', ['read'])
             ->missing('tokens.0.token')->missingFlash('newToken'));
     $this->post('/settings/api-tokens', ['name' => '  '])->assertSessionHasErrors('name');
     $this->post('/settings/api-tokens', ['name' => str_repeat('a', 256)])->assertSessionHasErrors('name');

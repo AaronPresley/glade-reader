@@ -16,6 +16,7 @@ class ApiTokenController extends Controller
             'tokens' => $request->user()->tokens()->latest('id')->get()->map(fn ($token): array => [
                 'id' => $token->id,
                 'name' => $token->name,
+                'abilities' => $token->abilities,
                 'created_at' => $token->created_at?->toIso8601String(),
                 'last_used_at' => $token->last_used_at?->toIso8601String(),
             ]),
@@ -26,7 +27,7 @@ class ApiTokenController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate(['name' => ['required', 'string', 'max:255']]);
-        $token = $request->user()->createToken($validated['name'], ['read']);
+        $token = $request->user()->createToken($validated['name'], ['read', 'sources:create']);
 
         Inertia::flash('newToken', $token->plainTextToken);
 
