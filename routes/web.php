@@ -4,6 +4,7 @@ use App\Domain\Entry\Controllers\EntryController;
 use App\Domain\Entry\Controllers\SourceReferenceArticleEntryController;
 use App\Domain\SourceReference\Controllers\BookmarkletSourceReferenceController;
 use App\Domain\SourceReference\Controllers\SourceReferenceController;
+use App\Domain\User\Controllers\ApiTokenController;
 use App\Domain\User\Controllers\LoginController;
 use App\Domain\User\Controllers\RegisterController;
 use Illuminate\Support\Facades\Route;
@@ -15,6 +16,9 @@ Route::get('/register', [RegisterController::class, 'create']);
 Route::post('/register', [RegisterController::class, 'store']);
 
 Route::middleware('auth')->group(function (): void {
+    Route::get('/settings/api-tokens', [ApiTokenController::class, 'index'])->name('settings.api-tokens.index');
+    Route::post('/settings/api-tokens', [ApiTokenController::class, 'store'])->middleware('throttle:10,1');
+    Route::delete('/settings/api-tokens/{token}', [ApiTokenController::class, 'destroy'])->whereNumber('token');
     Route::redirect('/', '/entries')->name('home');
     Route::get('/entries', [EntryController::class, 'index'])->name('entries.index');
     Route::get('/entries/{entry}', [EntryController::class, 'show'])->whereNumber('entry')->name('entries.show');

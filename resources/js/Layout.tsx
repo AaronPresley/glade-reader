@@ -16,6 +16,9 @@ export default function Layout({ children }: PropsWithChildren) {
                         <li>
                             <Link href="/source-references">Sources</Link>
                         </li>
+                        <li>
+                            <Link href="/settings/api-tokens">Settings</Link>
+                        </li>
                     </ul>
                 </nav>
             </header>

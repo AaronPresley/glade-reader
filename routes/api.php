@@ -1,0 +1,13 @@
+<?php
+
+use App\Domain\Entry\Controllers\ApiEntryController;
+use App\Domain\SourceReference\Controllers\ApiSourceReferenceController;
+use Illuminate\Support\Facades\Route;
+use Laravel\Sanctum\Http\Middleware\CheckAbilities;
+
+Route::middleware(['auth:sanctum', CheckAbilities::class.':read', 'throttle:60,1'])->group(function (): void {
+    Route::get('/entries', [ApiEntryController::class, 'index']);
+    Route::get('/entries/{entry}', [ApiEntryController::class, 'show'])->whereNumber('entry');
+    Route::get('/source-references', [ApiSourceReferenceController::class, 'index']);
+    Route::get('/source-references/{sourceReference}', [ApiSourceReferenceController::class, 'show'])->whereNumber('sourceReference');
+});
