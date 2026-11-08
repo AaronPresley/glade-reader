@@ -16,6 +16,12 @@ Keep all instructions in this file brief.
 - When adding or changing environment variables, update `docs/dockge-setup.md` with the production Dockge configuration.
 - Secrets belong in Dockge's `.env` panel and should be documented in the `Dockge .env` section, not hardcoded into compose examples or committed files.
 
+## Live debugging
+
+- Use Amp's project-scoped `TEST_URL` as the live API base URL and secret `TEST_TOKEN` as the Bearer token. Read them from the process environment; never print, commit, or include the token in logs or captures. These are Amp debugging variables, not Dockge app configuration.
+- After these variables change, run `amp orb restart-processes` to refresh the orb environment. Send the token only to the configured HTTPS host; do not forward it across redirects.
+- Default to read-only live requests. Production writes, including URL submissions that queue processing or incur provider costs, require explicit user approval. Use the isolated orb database for disposable fixtures.
+
 ## Testing
 
 - For now, add tests only for controllers unless explicitly asked otherwise.
