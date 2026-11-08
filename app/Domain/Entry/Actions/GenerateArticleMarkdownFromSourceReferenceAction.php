@@ -10,8 +10,6 @@ use RuntimeException;
 
 class GenerateArticleMarkdownFromSourceReferenceAction
 {
-    private const MAX_RAW_HTML_BYTES = 120000;
-
     /**
      * @return array{
      *     markdown: string,
@@ -61,8 +59,6 @@ class GenerateArticleMarkdownFromSourceReferenceAction
 
         $screenshotMimeType = Storage::mimeType($screenshotPath);
 
-        [$promptRawHtml, $rawHtmlTruncated] = $this->promptRawHtml($rawHtml);
-
         $client = app(Client::class, ['config' => [
             'base_uri' => 'https://openrouter.ai/api/v1/',
             'headers' => [
@@ -86,7 +82,8 @@ class GenerateArticleMarkdownFromSourceReferenceAction
                         'content' => [
                             [
                                 'type' => 'text',
-                                'text' => $this->prompt($sourceReference, $promptRawHtml, $rawHtmlTruncated),
+                                // Send the full capture so long articles are not silently cut off.
+                                'text' => $this->prompt($sourceReference, $rawHtml),
                             ],
                             [
                                 'type' => 'image_url',
@@ -121,30 +118,12 @@ class GenerateArticleMarkdownFromSourceReferenceAction
             'provider' => 'open_router',
             'model' => is_string($responseModel) && $responseModel !== '' ? $responseModel : $model,
             'usage' => is_array($usage) ? $usage : null,
-            'raw_html_truncated' => $rawHtmlTruncated,
+            'raw_html_truncated' => false,
         ];
     }
 
-    /**
-     * @return array{0: string, 1: bool}
-     */
-    private function promptRawHtml(string $rawHtml): array
+    private function prompt(SourceReference $sourceReference, string $rawHtml): string
     {
-        if (strlen($rawHtml) <= self::MAX_RAW_HTML_BYTES) {
-            return [$rawHtml, false];
-        }
-
-        return [
-            substr($rawHtml, 0, self::MAX_RAW_HTML_BYTES),
-            true,
-        ];
-    }
-
-    private function prompt(SourceReference $sourceReference, string $rawHtml, bool $rawHtmlTruncated): string
-    {
-        $truncationNote = $rawHtmlTruncated
-            ? "\n\nThe raw HTML was truncated for request size. Extract only article content supported by the supplied HTML. Do not recover missing text from the screenshot or invent a continuation."
-            : '';
         $contentUrl = $sourceReference->content_url ?? $sourceReference->url;
 
         return <<<PROMPT
@@ -158,7 +137,7 @@ Never transcribe, OCR, reconstruct, correct, or supplement article text from the
 
 Return high-quality Markdown only. Do not include commentary, extraction notes, or code fences around the final answer. Omit unrelated page elements, scripts, styles, and duplicate boilerplate.
 
-Source URL: {$contentUrl}{$truncationNote}
+Source URL: {$contentUrl}
 
 Raw HTML:
 ```html

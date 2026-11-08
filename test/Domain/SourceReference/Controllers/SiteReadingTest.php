@@ -50,12 +50,12 @@ function siteReadingScreenshotResponses(): array
     ];
 }
 
-function siteReadingHtmlResponses(): array
+function siteReadingHtmlResponses(string $html = '<article><h1>Linked article</h1><p>Publisher body, not comments.</p></article>'): array
 {
     return [
         siteReadingJson(['data' => ['id' => 'html-run']]),
         siteReadingJson(['data' => ['status' => 'SUCCEEDED', 'defaultDatasetId' => 'html']]),
-        siteReadingJson([['fullHtml' => '<article><h1>Linked article</h1><p>Publisher body, not comments.</p></article>']]),
+        siteReadingJson([['fullHtml' => $html]]),
     ];
 }
 
@@ -130,6 +130,21 @@ it('processes a saved URL through real jobs and provider adapters without networ
     'default' => ['https://publisher.example.com/writing/article?lang=en', 'default'],
     'HN' => ['https://news.ycombinator.com/item?id=50399933', 'hacker-news'],
 ]);
+
+it('sends the entire captured HTML to generation for large pages', function (): void {
+    $html = '<article><p>'.str_repeat('Full article text. ', 10000).'</p><p>Final paragraph beyond the old limit.</p></article>';
+    $history = [];
+    fakeSiteReadingProviders([
+        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html), siteReadingMarkdownResponse(),
+    ], $history);
+
+    $this->post('/source-references', ['url' => 'https://publisher.example.com/long-article'])->assertRedirect();
+
+    $prompt = json_decode((string) $history[7]['request']->getBody(), true)['messages'][1]['content'][0]['text'];
+    expect($prompt)->toContain($html)
+        ->and(Entry::firstOrFail()->status)->toBe(EntryStatus::Completed)
+        ->and(Entry::firstOrFail()->metadata['generation']['raw_html_truncated'])->toBeFalse();
+});
 
 it('extracts only the story text for text-only Hacker News posts', function (): void {
     Http::fake(['*' => Http::response([
