@@ -114,7 +114,7 @@ it('processes a saved URL through real jobs and provider adapters without networ
     $generationInput = json_decode((string) $history[7]['request']->getBody(), true);
     expect($screenshotInput['startUrls'][0]['url'])->toBe($target)
         ->and($htmlInput['requestListSources'][0]['url'])->toBe($target)
-        ->and($generationInput['messages'][1]['content'][0]['text'])->toContain('Source URL: '.$target, $source->raw_content);
+        ->and($generationInput['messages'][1]['content'][0]['text'])->toContain('Source URL: '.$target, 'Source outline (JSON):');
 
     $this->get('/entries/'.$entry->id)->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('entries/read')
@@ -134,21 +134,43 @@ it('processes a saved URL through real jobs and provider adapters without networ
     'HN' => ['https://news.ycombinator.com/item?id=50399933', 'hacker-news'],
 ]);
 
-it('extracts the entire long article locally from a small provider plan', function (): void {
-    $html = '<article><p>'.str_repeat('Full article text. ', 10000).'</p><p>Final paragraph beyond the old limit.</p></article>';
+it('plans from a compact source outline but extracts the entire original long article', function (): void {
+    $opening = "<article data-label='A > B &amp; café'>";
+    $html = '<script>const fake = "<article>Script-only fake article</article>";'.str_repeat('script-payload ', 10000).'</script>'
+        .'<style>/* Style-only payload */</style><!-- <div>Comment-only fake region</div> -->'
+        .$opening.'<h2>Opening section</h2><p>'.str_repeat('Full article text. ', 10000)
+        .'Unsent middle wording.</p><div data-region="tail"><h2>Last section</h2><p>Final paragraph beyond the old limit.</p></div></article>';
     $history = [];
     fakeSiteReadingProviders([
-        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html), siteReadingPlanResponse(),
+        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html),
+        siteReadingPlanResponse([['type' => 'article', 'patterns' => ["~<article data-label='A > B &amp; café'>(?<content>.*?)</article>~s"]]]),
     ], $history);
 
     $this->post('/source-references', ['url' => 'https://publisher.example.com/long-article'])->assertRedirect();
 
     $prompt = json_decode((string) $history[7]['request']->getBody(), true)['messages'][1]['content'][0]['text'];
-    expect($prompt)->toContain($html)
+    $outline = json_decode(explode("Source outline (JSON):\n", $prompt, 2)[1], true, 512, JSON_THROW_ON_ERROR);
+    $article = collect($outline)->firstWhere('tag', 'article');
+    expect(strlen($prompt))->toBeLessThan(strlen($html) / 10)
+        ->and($prompt)->not->toContain('Unsent middle wording.', 'Script-only fake article', 'script-payload', 'Style-only payload', 'Comment-only fake region')
+        ->and($article['start_snippet'])->toStartWith($opening)
+        ->and($article['end_snippet'])->toEndWith('</div></article>')
+        ->and($article['descendants']['h2'])->toBe(2)
+        ->and(collect($outline)->firstWhere('tag', 'div')['parent'])->toBe($article['id'])
         ->and(Entry::firstOrFail()->status)->toBe(EntryStatus::Completed)
-        ->and(Entry::firstOrFail()->content)->toContain('Final paragraph beyond the old limit.')
+        ->and(Entry::firstOrFail()->content)->toContain('Unsent middle wording.', '## Last section', 'Final paragraph beyond the old limit.')
         ->and(substr_count(Entry::firstOrFail()->content, 'Full article text.'))->toBe(10000)
         ->and(Entry::firstOrFail()->metadata['generation']['raw_html_truncated'])->toBeFalse();
+
+    // Every boundary shown to the model must be a literal slice of the saved source,
+    // including single quotes, entities and > characters inside attribute values.
+    foreach ($outline as $region) {
+        foreach (['html', 'start_snippet', 'end_snippet'] as $key) {
+            if (isset($region[$key]) && $region[$key] !== '') {
+                expect($html)->toContain($region[$key]);
+            }
+        }
+    }
 });
 
 it('generates an article from saved HTML and screenshot fixtures with a mocked regex plan', function (): void {
@@ -191,7 +213,11 @@ it('generates an article from saved HTML and screenshot fixtures with a mocked r
     // exhausts the handler. Both captured inputs come from disk, never live services.
     expect($history)->toHaveCount(1);
     $payload = json_decode((string) $history[0]['request']->getBody(), true);
-    expect($payload['messages'][1]['content'][0]['text'])->toContain($html)
+    $prompt = $payload['messages'][1]['content'][0]['text'];
+    $outline = explode("Source outline (JSON):\n", $prompt, 2)[1];
+    expect($prompt)->not->toContain($html)
+        ->and(strlen($outline))->toBeLessThan(strlen($html))
+        ->and($prompt)->toContain('Fixing the Portobello Police Station Clock', 'It was fun')
         ->and($payload['messages'][1]['content'][1]['image_url']['url'])->toBe('data:image/jpeg;base64,'.base64_encode($screenshot));
     Http::assertNothingSent();
 
@@ -206,6 +232,27 @@ it('generates an article from saved HTML and screenshot fixtures with a mocked r
             && str_contains($html, '<h1>Fixing the Portobello Police Station Clock</h1>')
             && substr_count($html, '<img ') === 9
             && ! str_contains($html, '### '));
+});
+
+it('fails visibly before calling the provider when the structural outline exceeds its budget', function (): void {
+    $html = '<article>'.str_repeat('<section><h2>Distinct section</h2><p>Article text.</p></section>', 1000).'<p>Still saved at the end.</p></article>';
+    Storage::put('fixture.jpg', 'fixture-screenshot');
+    $source = SourceReference::create([
+        'user_id' => auth()->id(), 'url' => 'https://publisher.example.com/too-many-regions',
+        'status' => SourceReferenceStatus::Completed, 'raw_content' => $html, 'screenshot_path' => 'fixture.jpg',
+    ]);
+    $history = [];
+    fakeSiteReadingProviders([], $history);
+
+    $this->post('/source-references/'.$source->id.'/entries/article')->assertRedirect();
+
+    $entry = Entry::firstOrFail();
+    expect($entry->status)->toBe(EntryStatus::Failed)
+        ->and($entry->content)->toBeNull()
+        ->and($entry->metadata['generation']['error'])->toContain('outline exceeds', 'planning budget')
+        ->and($source->refresh()->raw_content)->toBe($html)
+        ->and($history)->toBe([]);
+    Http::assertNothingSent();
 });
 
 it('assembles multiple article objects and repeated matches in plan order', function (): void {
@@ -269,7 +316,7 @@ it('extracts only the story text for text-only Hacker News posts', function (): 
     expect($source->raw_content)->toBe('<article><h1>Ask HN: A &lt; B?</h1><p>My original question.</p></article>')
         ->and(Entry::firstOrFail()->status)->toBe(EntryStatus::Completed);
     $prompt = json_decode((string) $history[4]['request']->getBody(), true)['messages'][1]['content'][0]['text'];
-    expect($prompt)->toContain($source->raw_content);
+    expect($prompt)->toContain('Source outline (JSON):', 'My original question.');
     Http::assertSentCount(1);
 });
 
