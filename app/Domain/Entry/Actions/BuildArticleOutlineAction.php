@@ -6,7 +6,11 @@ use RuntimeException;
 
 class BuildArticleOutlineAction
 {
-    public function handle(string $html): string
+    public const TOKEN_PATTERN = '~<!--|<![^>]*>|<\?.*?\?>|</?([a-z][a-z0-9:-]*)\b(?:[^>"\']++|"[^"]*+"|\'[^\']*+\')*>~is';
+
+    public const VOID_TAGS = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
+
+    public function handle(string $html, array $ancestors = []): string
     {
         // Index source tokens rather than reserializing a DOM: model-written regexes
         // must match the original capture, including its quoting and whitespace.
@@ -17,19 +21,29 @@ class BuildArticleOutlineAction
         $nextId = 1;
         $length = strlen($html);
         $regionTags = explode(' ', 'body title main article section div nav aside header footer form details summary h1 h2 h3 h4 h5 h6 pre blockquote ul ol dl figure figcaption table iframe video audio svg');
-        $atomicTags = explode(' ', 'pre blockquote ul ol dl figure table svg');
-        $voidTags = explode(' ', 'area base br col embed hr img input link meta param source track wbr');
-        $tokenPattern = '~<!--|<![^>]*>|<\?.*?\?>|</?([a-z][a-z0-9:-]*)\b(?:[^>"\']++|"[^"]*+"|\'[^\']*+\')*>~is';
+        $atomicTags = explode(' ', 'pre code blockquote ul ol dl figure table svg');
+
+        // Continuations inside code/lists/tables stay compact too. Context frames
+        // have no selectable IDs or synthetic HTML and end at real closing tags.
+        foreach ($ancestors as $ancestor) {
+            $parent = $stack[array_key_last($stack)];
+            $stack[] = $this->region($ancestor['tag'], 0, null, 0, '',
+                $parent['atomic'] || in_array($ancestor['tag'], $atomicTags, true));
+        }
 
         while ($offset < $length) {
-            $matched = preg_match($tokenPattern, $html, $match, PREG_OFFSET_CAPTURE, $offset);
+            $rawTag = $stack[array_key_last($stack)]['tag'];
+            $rawText = in_array($rawTag, ['title', 'textarea'], true);
+            $pattern = $rawText ? '~</('.$rawTag.')\s*>~i' : self::TOKEN_PATTERN;
+            $matched = preg_match($pattern, $html, $match, PREG_OFFSET_CAPTURE, $offset);
 
             if ($matched === false) {
                 throw new RuntimeException('Unable to build the article source outline: '.preg_last_error_msg());
             }
 
             $position = $matched === 1 ? $match[0][1] : $length;
-            $text = html_entity_decode(strip_tags(substr($html, $offset, $position - $offset)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $text = substr($html, $offset, $position - $offset);
+            $text = html_entity_decode($rawText ? $text : strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
             $this->appendText($stack[array_key_last($stack)], strlen($text), $text, $text);
 
@@ -82,7 +96,7 @@ class BuildArticleOutlineAction
             $stack[] = $this->region($tag, $position, $id, $parent['id'] ?? $parent['parent'], $token,
                 $parent['atomic'] || in_array($tag, $atomicTags, true));
 
-            if (in_array($tag, $voidTags, true) || str_ends_with($token, '/>')) {
+            if (in_array($tag, self::VOID_TAGS, true) || str_ends_with($token, '/>')) {
                 $this->closeRegion($stack, $regions, $offset, '');
             } elseif (in_array($tag, ['title', 'textarea'], true)) {
                 // These elements treat apparent markup as text, not child regions.
@@ -144,11 +158,6 @@ class BuildArticleOutlineAction
         }
 
         $json = json_encode($outline, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-
-        // Never silently prune later sections just to fit a provider request.
-        if (strlen($json) > 60000) {
-            throw new RuntimeException('Article outline exceeds the 60000-byte planning budget. The saved HTML has not been truncated.');
-        }
 
         return $json;
     }

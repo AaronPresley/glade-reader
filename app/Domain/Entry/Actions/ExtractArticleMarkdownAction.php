@@ -11,12 +11,16 @@ class ExtractArticleMarkdownAction
 {
     public function handle(string $rawHtml, array $plan): string
     {
+        return $this->renderRanges($rawHtml, $this->captureRanges($rawHtml, $plan));
+    }
+
+    public function captureRanges(string $rawHtml, array $plan): array
+    {
         if (($plan['version'] ?? null) !== 1 || ! is_array($plan['objects'] ?? null)
-            || ! array_is_list($plan['objects']) || $plan['objects'] === []) {
+            || ! array_is_list($plan['objects'])) {
             throw new RuntimeException('Extraction plan must contain version 1 and an ordered list of objects.');
         }
 
-        $fragments = [];
         $ranges = [];
         $backtrackLimit = ini_get('pcre.backtrack_limit');
         $recursionLimit = ini_get('pcre.recursion_limit');
@@ -64,7 +68,6 @@ class ExtractArticleMarkdownAction
 
                         // Array order is reading order; matches within a pattern retain
                         // source order. Only capture ranges, not context matches, overlap.
-                        $fragments[] = $html;
                         $ranges[] = [$offset, $offset + strlen($html)];
                     }
                 }
@@ -74,15 +77,42 @@ class ExtractArticleMarkdownAction
             ini_set('pcre.recursion_limit', $recursionLimit);
         }
 
-        usort($ranges, fn (array $left, array $right): int => $left[0] <=> $right[0]);
+        $sorted = $ranges;
+        usort($sorted, fn (array $left, array $right): int => $left[0] <=> $right[0]);
         $end = 0;
 
-        foreach ($ranges as [$start, $nextEnd]) {
+        foreach ($sorted as [$start, $nextEnd]) {
             if ($start < $end) {
                 throw new RuntimeException('Extraction patterns captured overlapping content.');
             }
 
             $end = $nextEnd;
+        }
+
+        return $ranges;
+    }
+
+    public function renderRanges(string $rawHtml, array $ranges): string
+    {
+        if ($ranges === []) {
+            throw new RuntimeException('Extraction did not select any article content.');
+        }
+
+        $fragments = [];
+        $previousEnd = null;
+
+        // Adjacent source ranges may split a word, tag container or code line.
+        // Rejoin their original bytes before conversion, without inserting whitespace.
+        foreach ($ranges as [$start, $end]) {
+            $html = substr($rawHtml, $start, $end - $start);
+
+            if ($start === $previousEnd) {
+                $fragments[array_key_last($fragments)] .= $html;
+            } else {
+                $fragments[] = $html;
+            }
+
+            $previousEnd = $end;
         }
 
         // Layout wrappers must not surround generated Markdown: CommonMark treats

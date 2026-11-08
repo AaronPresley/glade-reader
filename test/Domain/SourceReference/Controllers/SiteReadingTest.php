@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Entry\Enums\EntryStatus;
+use App\Domain\Entry\Jobs\GenerateArticleEntryJob;
 use App\Domain\Entry\Models\Entry;
 use App\Domain\SourceReference\Enums\SourceReferenceStatus;
 use App\Domain\SourceReference\Models\SourceReference;
@@ -134,19 +135,23 @@ it('processes a saved URL through real jobs and provider adapters without networ
     'HN' => ['https://news.ycombinator.com/item?id=50399933', 'hacker-news'],
 ]);
 
-it('plans from a compact source outline but extracts the entire original long article', function (): void {
+it('extracts long paragraphs and code across bounded chunks without duplicating or breaking source text', function (): void {
+    config(['queue.default' => 'database']);
     $opening = "<article data-label='A > B &amp; café'>";
     $html = '<script>const fake = "<article>Script-only fake article</article>";'.str_repeat('script-payload ', 10000).'</script>'
         .'<style>/* Style-only payload */</style><!-- <div>Comment-only fake region</div> -->'
-        .$opening.'<h2>Opening section</h2><p>'.str_repeat('Full article text. ', 10000)
-        .'Unsent middle wording.</p><div data-region="tail"><h2>Last section</h2><p>Final paragraph beyond the old limit.</p></div></article>';
+        .$opening.'<h2>Opening section</h2><p>'.str_repeat('Full article text. café 🚲 ', 5000)
+        .'Unsent middle wording.'.str_repeat('Full article text. café 🚲 ', 5000).'</p>'
+        .'<pre><code class="language-php">'.str_repeat("    echo \"chunked\";\n", 6000).'</code></pre>'
+        .'<div data-region="tail"><h2>Last section</h2><p>Final paragraph beyond the old limit.</p></div></article>';
     $history = [];
     fakeSiteReadingProviders([
         ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html),
-        siteReadingPlanResponse([['type' => 'article', 'patterns' => ["~<article data-label='A > B &amp; café'>(?<content>.*?)</article>~s"]]]),
+        ...array_fill(0, 30, siteReadingPlanResponse([['type' => 'article', 'patterns' => ['~\A(?<content>[\s\S]+)\z~']]])),
     ], $history);
 
     $this->post('/source-references', ['url' => 'https://publisher.example.com/long-article'])->assertRedirect();
+    Artisan::call('queue:work', ['--stop-when-empty' => true, '--tries' => 1, '--sleep' => 0]);
 
     $prompt = json_decode((string) $history[7]['request']->getBody(), true)['messages'][1]['content'][0]['text'];
     $outline = json_decode(explode("Source outline (JSON):\n", $prompt, 2)[1], true, 512, JSON_THROW_ON_ERROR);
@@ -154,20 +159,33 @@ it('plans from a compact source outline but extracts the entire original long ar
     expect(strlen($prompt))->toBeLessThan(strlen($html) / 10)
         ->and($prompt)->not->toContain('Unsent middle wording.', 'Script-only fake article', 'script-payload', 'Style-only payload', 'Comment-only fake region')
         ->and($article['start_snippet'])->toStartWith($opening)
-        ->and($article['end_snippet'])->toEndWith('</div></article>')
-        ->and($article['descendants']['h2'])->toBe(2)
-        ->and(collect($outline)->firstWhere('tag', 'div')['parent'])->toBe($article['id'])
         ->and(Entry::firstOrFail()->status)->toBe(EntryStatus::Completed)
         ->and(Entry::firstOrFail()->content)->toContain('Unsent middle wording.', '## Last section', 'Final paragraph beyond the old limit.')
+        ->and(Entry::firstOrFail()->content)->not->toContain('Script-only fake article', 'Comment-only fake region')
         ->and(substr_count(Entry::firstOrFail()->content, 'Full article text.'))->toBe(10000)
+        ->and(substr_count(Entry::firstOrFail()->content, 'café 🚲'))->toBe(10000)
+        ->and(substr_count(Entry::firstOrFail()->content, '    echo "chunked";'))->toBe(6000)
+        ->and(substr_count(Entry::firstOrFail()->content, '```php'))->toBe(1)
+        ->and(Entry::firstOrFail()->metadata['generation']['usage']['total_tokens'])->toBe((count($history) - 7) * 42)
         ->and(Entry::firstOrFail()->metadata['generation']['raw_html_truncated'])->toBeFalse();
 
-    // Every boundary shown to the model must be a literal slice of the saved source,
-    // including single quotes, entities and > characters inside attribute values.
-    foreach ($outline as $region) {
-        foreach (['html', 'start_snippet', 'end_snippet'] as $key) {
-            if (isset($region[$key]) && $region[$key] !== '') {
-                expect($html)->toContain($region[$key]);
+    $chunks = Entry::firstOrFail()->metadata['generation']['extraction']['plan']['chunks'];
+    expect(count($chunks))->toBeGreaterThan(2);
+
+    // Bounded requests and literal boundaries, even when source quoting/Unicode
+    // differ from a DOM serializer and a single code block spans several calls.
+    foreach (array_slice($history, 7) as $index => $request) {
+        $input = json_decode((string) $request['request']->getBody(), true)['messages'][1]['content'];
+        expect($input)->toHaveCount($index === 0 ? 2 : 1);
+        $prompt = $input[0]['text'];
+        $outline = explode("Source outline (JSON):\n", $prompt, 2)[1];
+        expect(strlen($outline))->toBeLessThanOrEqual(60000);
+
+        foreach (json_decode($outline, true) as $region) {
+            foreach (['html', 'start_snippet', 'end_snippet'] as $key) {
+                if (isset($region[$key]) && $region[$key] !== '') {
+                    expect($html)->toContain($region[$key]);
+                }
             }
         }
     }
@@ -207,7 +225,7 @@ it('generates an article from saved HTML and screenshot fixtures with a mocked r
         ->and($entry->content)->not->toContain('Go to the beginning', 'Contact me', 'rosie-flying-dog.jpg')
         ->and(strpos($entry->content, '### Setting the clock'))->toBeLessThan(strpos($entry->content, '### Setting the chime'))
         ->and($entry->metadata['generation']['extraction']['source_sha256'])->toBe(hash('sha256', $html))
-        ->and($entry->metadata['generation']['extraction']['plan']['objects'][0]['patterns'])->toHaveCount(3);
+        ->and($entry->metadata['generation']['extraction']['plan']['chunks'][0]['plan']['objects'][0]['patterns'])->toHaveCount(3);
 
     // Only the planned OpenRouter request is mocked: a stray provider/capture call
     // exhausts the handler. Both captured inputs come from disk, never live services.
@@ -234,7 +252,8 @@ it('generates an article from saved HTML and screenshot fixtures with a mocked r
             && ! str_contains($html, '### '));
 });
 
-it('fails visibly before calling the provider when the structural outline exceeds its budget', function (): void {
+it('processes dense markup through multiple bounded outlines instead of rejecting the whole page', function (): void {
+    config(['queue.default' => 'database']);
     $html = '<article>'.str_repeat('<section><h2>Distinct section</h2><p>Article text.</p></section>', 1000).'<p>Still saved at the end.</p></article>';
     Storage::put('fixture.jpg', 'fixture-screenshot');
     $source = SourceReference::create([
@@ -242,17 +261,127 @@ it('fails visibly before calling the provider when the structural outline exceed
         'status' => SourceReferenceStatus::Completed, 'raw_content' => $html, 'screenshot_path' => 'fixture.jpg',
     ]);
     $history = [];
-    fakeSiteReadingProviders([], $history);
+    fakeSiteReadingProviders(array_fill(0, 30, siteReadingPlanResponse([['type' => 'article', 'patterns' => ['~\A(?<content>[\s\S]+)\z~']]])), $history);
 
     $this->post('/source-references/'.$source->id.'/entries/article')->assertRedirect();
+    Artisan::call('queue:work', ['--stop-when-empty' => true, '--tries' => 1, '--sleep' => 0]);
 
     $entry = Entry::firstOrFail();
-    expect($entry->status)->toBe(EntryStatus::Failed)
-        ->and($entry->content)->toBeNull()
-        ->and($entry->metadata['generation']['error'])->toContain('outline exceeds', 'planning budget')
+    expect($entry->status)->toBe(EntryStatus::Completed)
+        ->and(substr_count($entry->content, '## Distinct section'))->toBe(1000)
+        ->and($entry->content)->toContain('Still saved at the end.')
         ->and($source->refresh()->raw_content)->toBe($html)
-        ->and($history)->toBe([]);
+        ->and(count($history))->toBeGreaterThan(1);
+
+    foreach ($history as $request) {
+        $prompt = json_decode((string) $request['request']->getBody(), true)['messages'][1]['content'][0]['text'];
+        expect(strlen(explode("Source outline (JSON):\n", $prompt, 2)[1]))->toBeLessThanOrEqual(60000);
+    }
+
     Http::assertNothingSent();
+});
+
+it('preserves inline text across ignored markup without restoring unselected chunks', function (): void {
+    config(['queue.default' => 'database']);
+    Storage::put('fixture.jpg', 'fixture-screenshot');
+    $source = SourceReference::create([
+        'user_id' => auth()->id(), 'url' => 'https://publisher.example.com/inline-gaps',
+        'status' => SourceReferenceStatus::Completed, 'screenshot_path' => 'fixture.jpg',
+        'raw_content' => '<article><p>hello<!-- <article>fake</article> -->world<script>fake()</script>!</p>'
+            .'<!-- boundary --><nav>Unselected navigation</nav><!-- boundary -->'
+            .'<p>tail</p></article><footer>Unselected footer</footer>',
+    ]);
+    $selectChunk = [['type' => 'article', 'patterns' => ['~\A(?<content>[\s\S]+)\z~']]];
+    $history = [];
+    fakeSiteReadingProviders([
+        siteReadingPlanResponse($selectChunk), siteReadingPlanResponse($selectChunk), siteReadingPlanResponse($selectChunk),
+        siteReadingPlanResponse([]),
+        siteReadingPlanResponse([['type' => 'article', 'patterns' => ['~\A(?<content>.*?</article>)~s']]]),
+    ], $history);
+
+    $this->post('/source-references/'.$source->id.'/entries/article')->assertRedirect();
+    Artisan::call('queue:work', ['--stop-when-empty' => true, '--tries' => 1, '--sleep' => 0]);
+
+    expect(Entry::firstOrFail()->status)->toBe(EntryStatus::Completed)
+        ->and(Entry::firstOrFail()->content)->toBe("helloworld!\n\ntail")
+        ->and($history)->toHaveCount(5);
+});
+
+it('resumes a failed chunk without repeating completed calls or publishing partial content', function (): void {
+    config(['queue.default' => 'database']);
+    Storage::put('fixture.jpg', 'fixture-screenshot');
+    $source = SourceReference::create([
+        'user_id' => auth()->id(), 'url' => 'https://publisher.example.com/resumable',
+        'status' => SourceReferenceStatus::Completed, 'screenshot_path' => 'fixture.jpg',
+        'raw_content' => '<article><p>'.str_repeat('Original wording. ', 10000).'</p><p>Last words.</p></article>',
+    ]);
+    $selectChunk = [['type' => 'article', 'patterns' => ['~\A(?<content>[\s\S]+)\z~']]];
+    $history = [];
+    fakeSiteReadingProviders([
+        siteReadingPlanResponse($selectChunk), siteReadingJson(['error' => 'temporary failure'], 503), siteReadingPlanResponse($selectChunk),
+    ], $history);
+
+    $this->post('/source-references/'.$source->id.'/entries/article')->assertRedirect();
+    $entry = Entry::firstOrFail();
+    $initialJob = new GenerateArticleEntryJob($entry);
+    Artisan::call('queue:work', ['--once' => true, '--tries' => 3, '--sleep' => 0]);
+    expect($entry->refresh()->status)->toBe(EntryStatus::Processing)
+        ->and($entry->content)->toBeNull()
+        ->and($entry->metadata['generation']['usage']['total_tokens'])->toBe(42);
+
+    Artisan::call('queue:work', ['--once' => true, '--tries' => 3, '--sleep' => 0]);
+    expect($entry->refresh()->status)->toBe(EntryStatus::Failed)
+        ->and($entry->content)->toBeNull();
+
+    Artisan::call('queue:work', ['--stop-when-empty' => true, '--tries' => 3, '--sleep' => 0]);
+    expect($entry->refresh()->status)->toBe(EntryStatus::Completed)
+        ->and(substr_count($entry->content, 'Original wording.'))->toBe(10000)
+        ->and($entry->content)->toEndWith('Last words.')
+        ->and($entry->metadata['generation']['usage']['total_tokens'])->toBe(84)
+        ->and($entry->metadata['generation']['error'])->toBeNull()
+        ->and($history)->toHaveCount(3)
+        ->and((string) $history[1]['request']->getBody())->toBe((string) $history[2]['request']->getBody());
+
+    // A duplicate initial delivery must not restart an already completed run.
+    dispatch_sync($initialJob);
+    expect($entry->refresh()->status)->toBe(EntryStatus::Completed)->and($history)->toHaveCount(3);
+});
+
+it('discards in-flight work and old metrics when a manual reprocess starts a new run', function (): void {
+    config(['queue.default' => 'database']);
+    Storage::put('fixture.jpg', 'fixture-screenshot');
+    $source = SourceReference::create([
+        'user_id' => auth()->id(), 'url' => 'https://publisher.example.com/new-run',
+        'status' => SourceReferenceStatus::Completed, 'screenshot_path' => 'fixture.jpg',
+        'raw_content' => '<article><p>'.str_repeat('Original wording. ', 10000).'</p><p>Last words.</p></article>',
+    ]);
+    $selectChunk = [['type' => 'article', 'patterns' => ['~\A(?<content>[\s\S]+)\z~']]];
+    $history = [];
+    fakeSiteReadingProviders([
+        siteReadingPlanResponse($selectChunk),
+        function () use ($source): Response {
+            $this->post('/source-references/'.$source->id.'/entries/article')->assertRedirect();
+
+            return siteReadingJson(['error' => 'old request failed'], 503);
+        },
+        siteReadingPlanResponse($selectChunk), siteReadingPlanResponse($selectChunk),
+    ], $history);
+
+    $this->post('/source-references/'.$source->id.'/entries/article')->assertRedirect();
+    $entry = Entry::firstOrFail();
+    $oldRunId = $entry->metadata['generation']['run_id'];
+    Artisan::call('queue:work', ['--once' => true, '--tries' => 3, '--sleep' => 0]);
+    expect($entry->refresh()->metadata['generation']['usage']['total_tokens'])->toBe(42);
+    Artisan::call('queue:work', ['--once' => true, '--tries' => 3, '--sleep' => 0]);
+    expect($entry->refresh()->status)->toBe(EntryStatus::Pending)
+        ->and($entry->metadata['generation']['run_id'])->not->toBe($oldRunId)
+        ->and(array_keys($entry->metadata['generation']))->toBe(['run_id']);
+
+    Artisan::call('queue:work', ['--stop-when-empty' => true, '--tries' => 3, '--sleep' => 0]);
+    expect($entry->refresh()->status)->toBe(EntryStatus::Completed)
+        ->and(substr_count($entry->content, 'Original wording.'))->toBe(10000)
+        ->and($entry->metadata['generation']['usage']['total_tokens'])->toBe(84)
+        ->and($history)->toHaveCount(4);
 });
 
 it('assembles multiple article objects and repeated matches in plan order', function (): void {
@@ -270,8 +399,9 @@ HTML;
         ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html),
         siteReadingPlanResponse([
             ['type' => 'article', 'patterns' => ['~(?<content><p>.*?</p>)~s', '~(?<content><pre>.*?</pre>)~s']],
-            ['type' => 'article', 'patterns' => ['~(?<content><table>.*?</table>\s*<script>.*?</script><style>.*?</style>)~s', '~(?<content><h1>.*?</h1>)~s']],
+            ['type' => 'article', 'patterns' => ['~(?<content><table>.*?</table>)~s', '~(?<content><h1>.*?</h1>)~s']],
         ]),
+        siteReadingPlanResponse([]),
     ], $history);
 
     $this->post('/source-references', ['url' => 'https://publisher.example.com/multiple-regions'])->assertRedirect();

@@ -190,5 +190,6 @@ The app container runs `php artisan migrate --force` at startup when `CONTAINER_
 - The app listens on container port `8080`; change `APP_PORT` in Dockge's `.env` section if the NAS host port is already in use.
 - Database, cache, sessions, and queue state are stored in Postgres.
 - Queue work is split across three explicit `queue-*` services. Add or remove `queue-*` service entries to change worker count.
+- Article extraction checkpoints one chunk per job on the database queue. Its 60-second provider timeout and 80-second job timeout fit the default 90-second queue visibility interval; keep visibility longer than the job timeout if overriding it. The whole page has no shared provider timeout or fixed chunk-count cap.
 - Laravel file storage uses the `s3` disk with the `woodchip-club-glade` bucket in `us-west-2`.
 - The `app_storage` volume is only for Laravel's writable runtime storage directory; uploaded/generated app files should be written through Laravel storage to S3.

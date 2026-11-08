@@ -10,6 +10,7 @@ use App\Domain\SourceReference\Enums\SourceReferenceStatus;
 use App\Domain\SourceReference\Models\SourceReference;
 use App\Domain\User\Models\User;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class GenerateArticleEntryAction
@@ -30,10 +31,15 @@ class GenerateArticleEntryAction
             ->where($attributes)
             ->first();
 
+        // A manual reprocess is a new run, not a continuation of an old checkpoint.
+        // Its identity also prevents queued work from an older run overwriting it.
+        $metadata = $existingEntry?->metadata ?? [];
+        $metadata['generation'] = ['run_id' => (string) Str::uuid()];
+
         $entry = Entry::updateOrCreate($attributes, [
             'status' => EntryStatus::Pending->value,
             'content' => null,
-            'metadata' => $this->metadataWithoutGenerationError($existingEntry?->metadata),
+            'metadata' => $metadata,
         ]);
 
         GenerateArticleEntryJob::dispatch($entry);
@@ -58,24 +64,5 @@ class GenerateArticleEntryAction
         if (! Storage::exists($sourceReference->screenshot_path)) {
             throw new RuntimeException('Source reference screenshot file does not exist.');
         }
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $metadata
-     * @return array<string, mixed>|null
-     */
-    private function metadataWithoutGenerationError(?array $metadata): ?array
-    {
-        $metadata ??= [];
-
-        if (isset($metadata['generation']) && is_array($metadata['generation'])) {
-            unset($metadata['generation']['error']);
-
-            if ($metadata['generation'] === []) {
-                unset($metadata['generation']);
-            }
-        }
-
-        return $metadata === [] ? null : $metadata;
     }
 }
