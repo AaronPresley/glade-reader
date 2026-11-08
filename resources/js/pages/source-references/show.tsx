@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import MobileMenu from '@/components/mobile-menu';
 import { Link, useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
 import type { ReactNode } from 'react';
@@ -73,39 +74,50 @@ export default function SourceReferencesShow({ sourceReference }: Props) {
         generateArticle(`/source-references/${sourceReference.id}/entries/article`);
     }
 
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-                <Link href="/source-references" className="underline underline-offset-4">
-                    Sources
+    const actions = (
+        <div className="page-actions">
+            {articleEntry && (
+                <Link href={`/entries/${articleEntry.id}/details`} className="text-sm underline underline-offset-4">
+                    Article{articleEntry.status ? `: ${articleEntry.status}` : ''}
                 </Link>
+            )}
 
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                    {articleEntry && (
-                        <Link href={`/entries/${articleEntry.id}/details`} className="text-sm underline underline-offset-4">
-                            Article{articleEntry.status ? `: ${articleEntry.status}` : ''}
-                        </Link>
-                    )}
+            <form onSubmit={submitGenerateArticle}>
+                <Button type="submit" disabled={generatingArticle || !canGenerateArticle}>
+                    {articleEntry ? 'Regenerate article' : 'Generate article'}
+                </Button>
+            </form>
 
-                    <form onSubmit={submitGenerateArticle}>
-                        <Button type="submit" disabled={generatingArticle || !canGenerateArticle}>
-                            {articleEntry ? 'Regenerate article' : 'Generate article'}
-                        </Button>
-                    </form>
+            <form onSubmit={submitDelete}>
+                <Button type="submit" variant="destructive" disabled={deleting}>
+                    Delete
+                </Button>
+            </form>
+        </div>
+    );
 
-                    <form onSubmit={submitDelete}>
-                        <Button type="submit" variant="destructive" disabled={deleting}>
-                            Delete
-                        </Button>
-                    </form>
-                </div>
+    return (
+        <div className="space-y-8">
+            <div className="page-toolbar">
+                <Link href="/source-references" className="hover:text-foreground">
+                    ← Sources
+                </Link>
+                <nav aria-label="Source actions" className="hidden md:block">
+                    {actions}
+                </nav>
+                <MobileMenu label="Source menu">{actions}</MobileMenu>
             </div>
-
-            <dl className="space-y-4">
+            <h1 className="page-title">Source details</h1>
+            <dl className="detail-fields">
                 <FieldRow label="id">{sourceReference.id}</FieldRow>
                 <FieldRow label="user_id">{sourceReference.user_id}</FieldRow>
                 <FieldRow label="url">
-                    <a href={sourceReference.url} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                    <a
+                        href={sourceReference.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-4"
+                    >
                         {sourceReference.url}
                     </a>
                 </FieldRow>

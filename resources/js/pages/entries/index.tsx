@@ -68,20 +68,27 @@ function EntriesTable({ entries }: EntriesTableProps) {
     return (
         <section>
             <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
+                <table className="data-table">
                     <thead>
                         <tr className="border-b">
-                            <th className="py-2 pr-4 font-medium">Status</th>
-                            <th className="py-2 pr-4 font-medium">Source URL</th>
-                            <th className="py-2 font-medium">Actions</th>
+                            <th className="hidden pr-4 md:table-cell">Status</th>
+                            <th className="pr-4">Source URL</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {entries.map((entry) => (
                             <tr key={entry.id} className="border-b align-top">
-                                <td className="py-2 pr-4">{entry.status ?? ''}</td>
-                                <td className="max-w-xl py-2 pr-4 break-all">{getSourceUrl(entry)}</td>
-                                <td className="py-2">
+                                <td className="hidden pr-4 text-xs text-muted-foreground md:table-cell">
+                                    {entry.status ?? ''}
+                                </td>
+                                <td className="max-w-xl pr-4 break-all">
+                                    {getSourceUrl(entry)}
+                                    <span className="mt-2 block text-xs text-muted-foreground md:hidden">
+                                        {entry.status ?? ''}
+                                    </span>
+                                </td>
+                                <td>
                                     {canRead(entry) ? (
                                         <Link href={`/entries/${entry.id}`} className={buttonVariants({ size: 'sm' })}>
                                             Read
@@ -112,7 +119,7 @@ function EntriesTable({ entries }: EntriesTableProps) {
 function ArchivedEntriesList({ entries }: { entries: Entry[] }) {
     return (
         <section className="space-y-2">
-            <h3 className="text-base font-medium">Archived</h3>
+            <h2 className="section-title">Archived</h2>
             {entries.length > 0 ? (
                 <ul className="divide-y text-sm">
                     {entries.map((entry) => (
@@ -135,9 +142,9 @@ function ArchivedEntriesList({ entries }: { entries: Entry[] }) {
 
 export default function EntriesIndex({ unarchivedEntries, archivedEntries, sourceProcessing }: Props) {
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <div className="flex items-center justify-between gap-4">
-                <h2 className="text-lg font-medium">Entries</h2>
+                <h1 className="page-title">Entries</h1>
                 <Link href="/source-references/create" className={buttonVariants()}>
                     Add URL
                 </Link>

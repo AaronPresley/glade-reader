@@ -17,15 +17,15 @@ export default function SourceReferencesCreate({ bookmarkletUrl }: Props) {
     }
 
     return (
-        <div className="max-w-xl space-y-5">
+        <div className="mx-auto max-w-xl space-y-8">
             <Link href="/entries" className="underline underline-offset-4">
                 Entries
             </Link>
 
             <section className="space-y-3" aria-labelledby="add-url-heading">
-                <h2 id="add-url-heading" className="text-lg font-medium">
+                <h1 id="add-url-heading" className="page-title mb-6">
                     Add URL
-                </h2>
+                </h1>
                 <form onSubmit={submit} className="space-y-3">
                     <Field data-invalid={Boolean(errors.url)}>
                         <FieldLabel htmlFor="url">URL</FieldLabel>
@@ -56,7 +56,7 @@ export default function SourceReferencesCreate({ bookmarkletUrl }: Props) {
             </section>
 
             <section className="space-y-3 border-t pt-5" aria-labelledby="bookmarklet-heading">
-                <h2 id="bookmarklet-heading" className="font-medium">
+                <h2 id="bookmarklet-heading" className="section-title">
                     Set up bookmarklet
                 </h2>
                 <a

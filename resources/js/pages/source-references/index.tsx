@@ -14,34 +14,46 @@ type Props = {
 
 export default function SourceReferencesIndex({ sourceReferences }: Props) {
     return (
-        <div className="space-y-4">
+        <div className="space-y-8">
             <div className="flex items-center justify-between gap-4">
-                <h2 className="text-lg font-medium">Sources</h2>
+                <h1 className="page-title">Sources</h1>
                 <Link href="/source-references/create" className={buttonVariants()}>
                     Add URL
                 </Link>
             </div>
 
             <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
+                <table className="data-table">
                     <thead>
                         <tr className="border-b">
-                            <th className="py-2 pr-4 font-medium">URL</th>
-                            <th className="py-2 pr-4 font-medium">Status</th>
-                            <th className="py-2 pr-4 font-medium">Created</th>
-                            <th className="py-2 font-medium">Link</th>
+                            <th className="pr-4">URL</th>
+                            <th className="hidden pr-4 md:table-cell">Status</th>
+                            <th className="hidden pr-4 md:table-cell">Created</th>
+                            <th>Link</th>
                         </tr>
                     </thead>
                     <tbody>
                         {sourceReferences.map((sourceReference) => (
                             <tr key={sourceReference.id} className="border-b align-top">
-                                <td className="max-w-xl py-2 pr-4 break-all">{sourceReference.url}</td>
-                                <td className="py-2 pr-4">{sourceReference.status}</td>
-                                <td className="py-2 pr-4">{sourceReference.created_at ?? ''}</td>
-                                <td className="py-2">
+                                <td className="max-w-xl pr-4 break-all">
+                                    {sourceReference.url}
+                                    <span className="mt-2 block text-xs text-muted-foreground md:hidden">
+                                        {sourceReference.status}
+                                    </span>
+                                    <span className="mt-1 block text-xs text-muted-foreground md:hidden">
+                                        {sourceReference.created_at ?? ''}
+                                    </span>
+                                </td>
+                                <td className="hidden pr-4 text-xs text-muted-foreground md:table-cell">
+                                    {sourceReference.status}
+                                </td>
+                                <td className="hidden pr-4 text-xs text-muted-foreground md:table-cell">
+                                    {sourceReference.created_at ?? ''}
+                                </td>
+                                <td>
                                     <Link
                                         href={`/source-references/${sourceReference.id}`}
-                                        className="underline underline-offset-4"
+                                        className="inline-flex min-h-11 items-center underline underline-offset-4 md:min-h-0"
                                     >
                                         Show
                                     </Link>

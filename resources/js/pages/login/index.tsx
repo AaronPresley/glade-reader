@@ -17,7 +17,11 @@ export default function Login() {
     }
 
     return (
-        <>
+        <div className="auth-page">
+            <div className="space-y-3">
+                <h1 className="page-title">Welcome back.</h1>
+                <p className="font-heading text-lg text-muted-foreground">Your next good read is waiting.</p>
+            </div>
             <form onSubmit={submit}>
                 <FieldSet>
                     <FieldGroup>
@@ -52,6 +56,6 @@ export default function Login() {
                     </Button>
                 </FieldSet>
             </form>
-        </>
+        </div>
     );
 }

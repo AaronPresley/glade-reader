@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import MobileMenu from '@/components/mobile-menu';
 import { Link, router, useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
 import type { ReactNode } from 'react';
@@ -83,31 +84,33 @@ export default function EntriesShow({ entry }: Props) {
         destroy(`/entries/${entry.id}`);
     }
 
+    const actions = (
+        <div className="page-actions">
+            <Button type="button" disabled={!canRead} onClick={() => router.visit(`/entries/${entry.id}`)}>
+                Read
+            </Button>
+
+            <form onSubmit={submit}>
+                <Button type="submit" variant="destructive" disabled={processing}>
+                    Delete
+                </Button>
+            </form>
+        </div>
+    );
+
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-                <Link href="/entries" className="underline underline-offset-4">
-                    Entries
+        <div className="space-y-8">
+            <div className="page-toolbar">
+                <Link href="/entries" className="hover:text-foreground">
+                    ← Entries
                 </Link>
-
-                <div className="flex items-center gap-2">
-                    <Button
-                        type="button"
-                        disabled={!canRead}
-                        onClick={() => router.visit(`/entries/${entry.id}`)}
-                    >
-                        Read
-                    </Button>
-
-                    <form onSubmit={submit}>
-                        <Button type="submit" variant="destructive" disabled={processing}>
-                            Delete
-                        </Button>
-                    </form>
-                </div>
+                <nav aria-label="Entry actions" className="hidden md:block">
+                    {actions}
+                </nav>
+                <MobileMenu label="Entry menu">{actions}</MobileMenu>
             </div>
-
-            <dl className="space-y-4">
+            <h1 className="page-title">Entry details</h1>
+            <dl className="detail-fields">
                 <FieldRow label="id">{entry.id}</FieldRow>
                 <FieldRow label="source_reference_id">{sourceReferenceId ?? ''}</FieldRow>
                 <FieldRow label="source_url">
@@ -132,7 +135,7 @@ export default function EntriesShow({ entry }: Props) {
             </dl>
 
             <section className="space-y-2">
-                <h2 className="text-lg font-medium">Content</h2>
+                <h2 className="section-title">Content</h2>
                 <pre className="max-h-[32rem] overflow-auto whitespace-pre-wrap rounded border p-3 text-sm">
                     {entry.content ?? ''}
                 </pre>

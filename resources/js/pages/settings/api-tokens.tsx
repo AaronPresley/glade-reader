@@ -39,9 +39,9 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
     }
 
     return (
-        <div className="mx-auto w-full max-w-2xl space-y-6">
-            <div className="space-y-2">
-                <h2 className="text-xl font-medium">API tokens</h2>
+        <div className="mx-auto w-full max-w-2xl space-y-8">
+            <div className="space-y-4">
+                <h1 className="page-title">API tokens</h1>
                 <p className="text-sm text-muted-foreground">
                     Give your integrations access to read your sources and entries and add new URLs. Tokens cannot edit
                     or delete data or access users. Keep them private; they remain valid until revoked.
@@ -81,9 +81,9 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
                     className="space-y-3 rounded-lg border border-olive-300 bg-olive-50 p-4"
                     aria-labelledby="new-token-heading"
                 >
-                    <h3 id="new-token-heading" className="font-medium">
+                    <h2 id="new-token-heading" className="section-title">
                         Your new token
-                    </h3>
+                    </h2>
                     <p className="text-sm">Copy it now. You won’t be able to retrieve it after leaving this page.</p>
                     <Field>
                         <FieldLabel htmlFor="new-token">Token secret</FieldLabel>
@@ -106,9 +106,9 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
             )}
 
             <section className="space-y-3" aria-labelledby="active-tokens-heading">
-                <h3 id="active-tokens-heading" className="font-medium">
+                <h2 id="active-tokens-heading" className="section-title">
                     Active tokens
-                </h3>
+                </h2>
                 {tokens.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No tokens yet. Generate one to get started.</p>
                 ) : (
@@ -152,9 +152,9 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
             </section>
 
             <section className="space-y-3 border-t pt-5" aria-labelledby="usage-heading">
-                <h3 id="usage-heading" className="font-medium">
+                <h2 id="usage-heading" className="section-title">
                     Using the API
-                </h3>
+                </h2>
                 <p className="text-sm text-muted-foreground">
                     Send your token as a Bearer token. Lists return 25 records per page; follow the pagination links for
                     more.
@@ -162,7 +162,7 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
                 <pre className="break-all whitespace-pre-wrap rounded-lg bg-muted p-3 text-xs">
                     <code>{`curl -H "Authorization: Bearer YOUR_TOKEN" -H "Accept: application/json" ${apiUrl}/entries`}</code>
                 </pre>
-                <ul className="space-y-1 text-sm">
+                <ul className="space-y-1 text-sm [overflow-wrap:anywhere]">
                     <li>
                         <code>GET /api/entries</code> and <code>/api/entries/&#123;id&#125;</code>
                     </li>

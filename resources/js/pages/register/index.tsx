@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Field, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { Field, FieldError, FieldGroup, FieldLabel, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
@@ -19,10 +19,15 @@ export default function Register() {
     }
 
     return (
-        <>
-            <form onSubmit={submit} className="max-w-sm space-y-4">
+        <div className="auth-page">
+            <div className="space-y-3">
+                <h1 className="page-title">A place to read.</h1>
+                <p className="font-heading text-lg text-muted-foreground">
+                    Create your account and make yourself at home.
+                </p>
+            </div>
+            <form onSubmit={submit} className="space-y-4">
                 <FieldSet>
-                    <FieldLegend>Sup first user.</FieldLegend>
                     <FieldGroup>
                         <Field data-invalid={Boolean(errors.username)}>
                             <FieldLabel htmlFor="username">Username</FieldLabel>
@@ -81,6 +86,6 @@ export default function Register() {
                     </Button>
                 </FieldSet>
             </form>
-        </>
+        </div>
     );
 }

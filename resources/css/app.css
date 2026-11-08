@@ -8,14 +8,8 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
-@theme {
-    --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
-}
-
 @theme inline {
-    --font-heading: var(--font-sans);
+    --font-heading: Georgia, 'Times New Roman', serif;
     --font-sans: 'Geist Variable', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
@@ -58,24 +52,24 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.153 0.006 107.1);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.153 0.006 107.1);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.153 0.006 107.1);
-    --primary: oklch(0.5 0.134 242.749);
-    --primary-foreground: oklch(0.977 0.013 236.62);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.966 0.005 106.5);
-    --muted-foreground: oklch(0.58 0.031 107.3);
-    --accent: oklch(0.966 0.005 106.5);
-    --accent-foreground: oklch(0.228 0.013 107.4);
+    --background: #f8f5ee;
+    --foreground: #373328;
+    --card: #fcfaf5;
+    --card-foreground: #373328;
+    --popover: #fcfaf5;
+    --popover-foreground: #373328;
+    --primary: #4c633c;
+    --primary-foreground: #fcfaf5;
+    --secondary: #eeeadf;
+    --secondary-foreground: #443f34;
+    --muted: #f0eee4;
+    --muted-foreground: #706858;
+    --accent: #e9e8dc;
+    --accent-foreground: #38432d;
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.93 0.007 106.5);
-    --input: oklch(0.93 0.007 106.5);
-    --ring: oklch(0.737 0.021 106.9);
+    --border: #ded9cc;
+    --input: #c9c3b3;
+    --ring: #7b8b68;
     --chart-1: oklch(0.88 0.011 106.6);
     --chart-2: oklch(0.58 0.031 107.3);
     --chart-3: oklch(0.466 0.025 107.3);
@@ -99,8 +93,8 @@
     --card-foreground: oklch(0.988 0.003 106.5);
     --popover: oklch(0.228 0.013 107.4);
     --popover-foreground: oklch(0.988 0.003 106.5);
-    --primary: oklch(0.443 0.11 240.79);
-    --primary-foreground: oklch(0.977 0.013 236.62);
+    --primary: #b8c9a5;
+    --primary-foreground: #20271a;
     --secondary: oklch(0.274 0.006 286.033);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.286 0.016 107.4);
@@ -134,6 +128,206 @@
         @apply h-full font-sans;
     }
     body {
-        @apply min-h-full bg-background text-foreground;
+        @apply min-h-full bg-background text-foreground antialiased;
+    }
+    h1,
+    h2,
+    h3,
+    h4 {
+        font-family: var(--font-heading);
+        text-wrap: balance;
+    }
+    a,
+    button {
+        touch-action: manipulation;
+    }
+    a:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 4px;
+    }
+    ::selection {
+        background: var(--accent);
+        color: var(--accent-foreground);
+    }
+}
+
+@layer components {
+    .site-header {
+        @apply border-b bg-muted;
+    }
+    .site-header-inner {
+        @apply mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-x-4 px-5 md:min-h-[68px] md:px-10;
+    }
+    .site-brand {
+        @apply flex items-center gap-2.5 font-heading text-2xl tracking-tight;
+    }
+    .site-brand svg {
+        @apply size-5 text-primary;
+    }
+    .site-navigation {
+        @apply items-center gap-8 text-sm text-muted-foreground;
+    }
+    .site-navigation a[aria-current='page'] {
+        @apply text-primary;
+    }
+    .site-navigation a:hover,
+    .site-footer a:hover,
+    .site-footer button:hover {
+        @apply text-foreground underline underline-offset-4;
+    }
+    .page-content {
+        @apply mx-auto w-full min-w-0 max-w-5xl flex-1 px-6 py-9 outline-none md:px-10 md:py-14;
+    }
+    .page-content:has(.reader) {
+        @apply max-w-7xl px-5 pt-0 md:px-10;
+    }
+    .page-title {
+        @apply font-heading text-4xl leading-tight font-normal tracking-tight md:text-5xl;
+    }
+    .section-title {
+        @apply font-heading text-2xl leading-snug font-normal tracking-tight;
+    }
+    .page-toolbar {
+        @apply mb-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-0 border-b pb-3 text-sm text-muted-foreground;
+    }
+    .page-actions {
+        @apply flex flex-wrap items-center gap-3;
+    }
+    .page-actions > a {
+        @apply underline-offset-4 hover:text-foreground hover:underline;
+    }
+    .mobile-menu-panel {
+        @apply w-full py-3;
+    }
+    .mobile-menu-panel nav,
+    .mobile-menu-panel .page-actions {
+        @apply flex flex-col items-stretch gap-1;
+    }
+    .mobile-menu-panel nav > a,
+    .mobile-menu-panel nav > button,
+    .mobile-menu-panel .page-actions > a,
+    .mobile-menu-panel form > button {
+        @apply flex min-h-11 w-full items-center justify-start rounded-md px-3 py-2 text-left text-sm;
+    }
+    .mobile-menu-panel a:hover,
+    .mobile-menu-panel nav > button:hover {
+        @apply bg-accent;
+    }
+    .site-footer {
+        @apply mx-auto flex w-full max-w-7xl items-center justify-between gap-4 border-t px-6 py-6 text-xs text-muted-foreground md:px-10;
+    }
+    .skip-link {
+        @apply sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-card focus:p-3;
+    }
+    .auth-page {
+        @apply mx-auto w-full max-w-sm space-y-8 py-4 md:py-10;
+    }
+    .data-table {
+        @apply w-full border-collapse text-left text-sm;
+    }
+    .data-table th {
+        @apply py-4 font-normal text-muted-foreground;
+    }
+    .data-table td {
+        @apply py-5;
+    }
+    .data-table tbody tr:last-child {
+        @apply border-b-0;
+    }
+    .detail-fields {
+        @apply grid min-w-0 gap-6 border-t pt-6 sm:grid-cols-2;
+    }
+    .detail-fields > div {
+        @apply min-w-0;
+    }
+    .detail-fields > div:has(pre) {
+        @apply col-span-full;
+    }
+    .detail-fields dt {
+        @apply text-muted-foreground;
+    }
+    .detail-fields pre {
+        @apply bg-card;
+    }
+    .book-article {
+        @apply mx-auto w-full max-w-[654px] py-9 md:py-[72px];
+    }
+    .book-meta {
+        @apply mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-b pb-4 font-sans text-xs text-muted-foreground md:mb-[30px] md:pb-5;
+    }
+    .book-meta a {
+        @apply text-primary hover:underline;
+    }
+    .book-prose {
+        @apply font-heading text-xl leading-[1.8] text-foreground md:text-[22px] md:leading-[1.85];
+        overflow-wrap: break-word;
+    }
+    .book-prose h1 {
+        @apply mb-[30px] text-[34px] leading-[1.24] font-normal tracking-[-0.6px] md:mb-[38px] md:text-[46px] md:leading-[1.2] md:tracking-[-1.1px];
+    }
+    .book-prose h2 {
+        @apply mt-12 mb-5 text-3xl leading-tight font-normal tracking-tight;
+    }
+    .book-prose h3,
+    .book-prose h4 {
+        @apply mt-10 mb-4 text-2xl leading-snug font-normal;
+    }
+    .book-prose p {
+        @apply mb-6;
+        text-wrap: pretty;
+    }
+    .book-prose a {
+        @apply text-primary underline decoration-1 underline-offset-4;
+    }
+    .book-prose blockquote {
+        @apply my-8 border-y px-1 py-[18px] text-[21px] leading-[1.55] text-muted-foreground italic md:px-3 md:py-5 md:text-2xl;
+    }
+    .book-prose blockquote p:last-child {
+        @apply mb-0;
+    }
+    .book-prose ul,
+    .book-prose ol {
+        @apply my-6 pl-7;
+    }
+    .book-prose ul {
+        @apply list-disc;
+    }
+    .book-prose ol {
+        @apply list-decimal;
+    }
+    .book-prose li {
+        @apply my-2 pl-1;
+    }
+    .book-prose code {
+        @apply rounded bg-muted px-1 font-mono text-[0.8em];
+    }
+    .book-prose pre {
+        @apply my-6 overflow-x-auto rounded-lg bg-muted p-5 text-sm leading-relaxed;
+    }
+    .book-prose pre code {
+        @apply bg-transparent p-0 text-inherit;
+    }
+    .book-prose img,
+    .book-prose video {
+        @apply my-8 h-auto max-w-full rounded;
+    }
+    .book-prose table {
+        @apply my-6 block max-w-full overflow-x-auto text-base;
+    }
+    .book-prose td,
+    .book-prose th {
+        @apply border px-3 py-2;
+    }
+    .book-prose sup {
+        @apply font-sans text-xs leading-none;
+    }
+    .book-prose hr {
+        @apply my-10 border-t;
+    }
+    .book-prose .footnotes {
+        @apply text-base;
+    }
+    .book-prose [id] {
+        scroll-margin-top: 24px;
     }
 }

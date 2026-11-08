@@ -42,12 +42,12 @@ export default function Bookmarklet({ captureUrl, errorMessage }: Props) {
     }, []);
 
     return (
-        <div className="max-w-xl space-y-4">
+        <div className="mx-auto max-w-xl space-y-6">
             <Head title="Save to Glade">
                 <meta name="referrer" content="no-referrer" />
             </Head>
 
-            <h2 className="text-lg font-medium">{error ? 'Unable to save to Glade' : 'Saving to Glade…'}</h2>
+            <h1 className="page-title">{error ? 'Unable to save to Glade' : 'Saving to Glade…'}</h1>
             {error ? (
                 <>
                     <p role="alert">{error}</p>
