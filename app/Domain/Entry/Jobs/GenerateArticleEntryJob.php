@@ -77,8 +77,16 @@ class GenerateArticleEntryJob implements ShouldQueue
                     'raw_html_truncated' => $result['raw_html_truncated'],
                     'extraction' => $result['extraction'] ?? null,
                     'checkpoint' => $result['checkpoint'] ?? null,
-                    'error' => null,
+                    'error' => $result['error'] ?? null,
                 ]);
+
+                if (isset($result['error'])) {
+                    // Commit diagnostics before throwing for the worker's retry;
+                    // rolling them back would lose both the paid response and feedback.
+                    $entry->update(['status' => EntryStatus::Failed->value, 'metadata' => $metadata]);
+
+                    return;
+                }
 
                 if (isset($result['checkpoint'])) {
                     // With the database queue, progress and its continuation commit
@@ -103,6 +111,10 @@ class GenerateArticleEntryJob implements ShouldQueue
                     'metadata' => $metadata,
                 ]);
             });
+
+            if (isset($result['error'])) {
+                throw new RuntimeException($result['error']);
+            }
         } catch (Throwable $exception) {
             $this->markFailed($exception);
 
