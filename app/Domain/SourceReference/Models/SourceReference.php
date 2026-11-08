@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['user_id', 'url', 'status', 'raw_content', 'screenshot_path', 'metadata'])]
+#[Fillable(['user_id', 'url', 'content_url', 'status', 'raw_content', 'screenshot_path', 'metadata'])]
 class SourceReference extends Model
 {
     /**

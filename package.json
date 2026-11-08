@@ -5,6 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
+        "test": "node --test test/Domain/Entry/Views/*.test.mjs",
         "format": "npm run format:prettier && npm run format:pint",
         "format:prettier": "prettier --write .",
         "format:pint": "./run vendor/bin/pint"

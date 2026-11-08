@@ -1,8 +1,6 @@
 import { Button } from '@/components/ui/button';
 import MobileMenu from '@/components/mobile-menu';
-import Markdown, { defaultUrlTransform } from 'react-markdown';
-import rehypeRaw from 'rehype-raw';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import { DefaultReadingLayout, readingLayouts } from '@/components/reader/reading-layouts';
 import { Link, useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
 
@@ -14,6 +12,10 @@ type SourceReferenceSummary = {
 type Entry = {
     id: number;
     content: string | null;
+    reading: {
+        layout: string;
+        content_url: string | null;
+    };
     archived_at?: string | null;
     source_reference: SourceReferenceSummary | null;
 };
@@ -26,6 +28,7 @@ export default function EntriesRead({ entry }: Props) {
     const { post, processing } = useForm({});
     const archived = Boolean(entry.archived_at);
     const readingMinutes = Math.max(1, Math.ceil((entry.content?.trim().split(/\s+/).length ?? 0) / 230));
+    const ReadingLayout = readingLayouts[entry.reading.layout] ?? DefaultReadingLayout;
 
     function toggleArchive(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -40,7 +43,7 @@ export default function EntriesRead({ entry }: Props) {
                 <>
                     <Link href={`/source-references/${entry.source_reference.id}`}>Source Reference</Link>
                     <a href={entry.source_reference.url} target="_blank" rel="noreferrer">
-                        Original URL
+                        {entry.reading.layout === 'hacker-news' ? 'HN discussion' : 'Original URL'}
                     </a>
                 </>
             )}
@@ -63,38 +66,13 @@ export default function EntriesRead({ entry }: Props) {
                 </nav>
                 <MobileMenu label="Article menu">{actions}</MobileMenu>
             </div>
-            <div className="book-article px-1.5 md:px-0">
-                <div className="book-meta">
-                    {entry.source_reference && (
-                        <a href={entry.source_reference.url} target="_blank" rel="noreferrer">
-                            {new URL(entry.source_reference.url).hostname} ↗
-                        </a>
-                    )}
-                    <span>{readingMinutes} min read</span>
-                    {archived && <span>Archived</span>}
-                </div>
-                <article className="book-prose">
-                    <Markdown
-                        rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                        urlTransform={(url, key) => {
-                            const safeUrl = defaultUrlTransform(url);
-
-                            // Match the sanitizer's ID prefix so footnote and other fragment links still work.
-                            if (key === 'href' && safeUrl.startsWith('#')) {
-                                return `#${defaultSchema.clobberPrefix}${safeUrl.slice(1)}`;
-                            }
-
-                            if (safeUrl && entry.source_reference && (key === 'href' || key === 'src')) {
-                                return new URL(safeUrl, entry.source_reference.url).href;
-                            }
-
-                            return safeUrl;
-                        }}
-                    >
-                        {entry.content ?? ''}
-                    </Markdown>
-                </article>
-            </div>
+            <ReadingLayout
+                content={entry.content}
+                contentUrl={entry.reading.content_url}
+                sourceUrl={entry.source_reference?.url ?? null}
+                readingMinutes={readingMinutes}
+                archived={archived}
+            />
         </div>
     );
 }

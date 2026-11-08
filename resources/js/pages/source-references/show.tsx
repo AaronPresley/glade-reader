@@ -8,6 +8,7 @@ type SourceReference = {
     id: number;
     user_id: number;
     url: string;
+    content_url: string | null;
     status: string;
     raw_content: string | null;
     screenshot_path: string | null;
@@ -121,6 +122,18 @@ export default function SourceReferencesShow({ sourceReference }: Props) {
                         {sourceReference.url}
                     </a>
                 </FieldRow>
+                {sourceReference.content_url && sourceReference.content_url !== sourceReference.url && (
+                    <FieldRow label="Content URL (HTML and screenshot)">
+                        <a
+                            href={sourceReference.content_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline underline-offset-4"
+                        >
+                            {sourceReference.content_url}
+                        </a>
+                    </FieldRow>
+                )}
                 <FieldRow label="status">{sourceReference.status}</FieldRow>
                 <FieldRow label="raw_content">
                     <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded border p-3 text-xs">

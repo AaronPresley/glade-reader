@@ -13,6 +13,7 @@ class SourceReferenceResource extends JsonResource
         return [
             'id' => $this->id,
             'url' => $this->url,
+            'content_url' => $this->content_url,
             'status' => $this->status->value,
             'raw_content' => $this->raw_content,
             'screenshot_path' => $this->screenshot_path,

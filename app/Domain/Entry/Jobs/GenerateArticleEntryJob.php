@@ -2,7 +2,6 @@
 
 namespace App\Domain\Entry\Jobs;
 
-use App\Domain\Entry\Actions\GenerateArticleMarkdownFromSourceReferenceAction;
 use App\Domain\Entry\Enums\EntryStatus;
 use App\Domain\Entry\Models\Entry;
 use Illuminate\Bus\Queueable;
@@ -21,7 +20,7 @@ class GenerateArticleEntryJob implements ShouldQueue
         public Entry $entry,
     ) {}
 
-    public function handle(GenerateArticleMarkdownFromSourceReferenceAction $generateMarkdown): void
+    public function handle(): void
     {
         try {
             $entry = $this->entry->fresh(['sourceReference']);
@@ -37,18 +36,27 @@ class GenerateArticleEntryJob implements ShouldQueue
                 ]),
             ]);
 
-            $result = $generateMarkdown->handle($entry->sourceReference);
+            $flow = $entry->sourceReference->metadata['reading']['flow'] ?? 'article';
+            $result = app(config('reading.flows.'.$flow.'.generator'))->handle($entry->sourceReference);
+            $metadata = $this->metadataWithGeneration($entry->metadata, [
+                'provider' => $result['provider'],
+                'model' => $result['model'],
+                'usage' => $result['usage'],
+                'raw_html_truncated' => $result['raw_html_truncated'],
+                'error' => null,
+            ]);
+            // Keep the layout and URL base with the content they describe. Future site
+            // rules or source retries must not reinterpret an already generated read;
+            // opening it should use stored data, without fresh provider calls or costs.
+            $metadata['reading'] = [
+                ...($entry->sourceReference->metadata['reading'] ?? ['layout' => 'default', 'flow' => 'article']),
+                'content_url' => $entry->sourceReference->content_url ?? $entry->sourceReference->url,
+            ];
 
             $entry->update([
                 'content' => $result['markdown'],
                 'status' => EntryStatus::Completed->value,
-                'metadata' => $this->metadataWithGeneration($entry->metadata, [
-                    'provider' => $result['provider'],
-                    'model' => $result['model'],
-                    'usage' => $result['usage'],
-                    'raw_html_truncated' => $result['raw_html_truncated'],
-                    'error' => null,
-                ]),
+                'metadata' => $metadata,
             ]);
         } catch (Throwable $exception) {
             $this->markFailed($exception);

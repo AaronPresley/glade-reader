@@ -2,7 +2,6 @@
 
 namespace App\Domain\SourceReference\Jobs;
 
-use App\Actions\GetRawContentFromUrlAction;
 use App\Domain\SourceReference\Enums\SourceReferenceStepStatus;
 use App\Domain\SourceReference\Models\SourceReference;
 use Illuminate\Bus\Batchable;
@@ -21,8 +20,11 @@ class GetSourceReferenceRawContentJob implements ShouldQueue
         public SourceReference $sourceReference,
     ) {}
 
-    public function handle(GetRawContentFromUrlAction $getRawContentFromUrl): void
+    public function handle(): void
     {
+        $flow = $this->sourceReference->metadata['reading']['flow'] ?? 'article';
+        $getRawContentFromUrl = app(config('reading.flows.'.$flow.'.raw_content'));
+
         SourceReference::query()
             ->whereKey($this->sourceReference->id)
             ->update([
@@ -38,7 +40,8 @@ class GetSourceReferenceRawContentJob implements ShouldQueue
         SourceReference::query()
             ->whereKey($this->sourceReference->id)
             ->update([
-                'raw_content' => $getRawContentFromUrl->handle($this->sourceReference->url),
+                'raw_content' => $this->sourceReference->metadata['resolution']['html']
+                    ?? $getRawContentFromUrl->handle($this->sourceReference->content_url ?? $this->sourceReference->url),
                 'metadata->raw_content->status' => SourceReferenceStepStatus::Completed->value,
             ]);
 

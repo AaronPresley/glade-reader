@@ -63,7 +63,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
 
         [$promptRawHtml, $rawHtmlTruncated] = $this->promptRawHtml($rawHtml);
 
-        $client = new Client([
+        $client = app(Client::class, ['config' => [
             'base_uri' => 'https://openrouter.ai/api/v1/',
             'headers' => [
                 'Accept' => 'application/json',
@@ -71,7 +71,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
                 'Content-Type' => 'application/json',
             ],
             'timeout' => 120,
-        ]);
+        ]]);
 
         $response = $client->post('chat/completions', [
             'json' => [
@@ -145,6 +145,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
         $truncationNote = $rawHtmlTruncated
             ? "\n\nThe raw HTML was truncated for request size. Extract only article content supported by the supplied HTML. Do not recover missing text from the screenshot or invent a continuation."
             : '';
+        $contentUrl = $sourceReference->content_url ?? $sourceReference->url;
 
         return <<<PROMPT
 Convert the main article in the supplied raw HTML into Markdown.
@@ -157,7 +158,7 @@ Never transcribe, OCR, reconstruct, correct, or supplement article text from the
 
 Return high-quality Markdown only. Do not include commentary, extraction notes, or code fences around the final answer. Omit unrelated page elements, scripts, styles, and duplicate boilerplate.
 
-Source URL: {$sourceReference->url}{$truncationNote}
+Source URL: {$contentUrl}{$truncationNote}
 
 Raw HTML:
 ```html

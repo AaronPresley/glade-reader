@@ -200,8 +200,28 @@ it('renders completed entries in the read view', function (): void {
             ->component('entries/read')
             ->where('entry.id', $entry->id)
             ->where('entry.content', "# Article Title\n\nArticle body.")
+            ->where('entry.reading.layout', 'default')
+            ->where('entry.reading.content_url', 'https://example.com/source')
             ->where('entry.source_reference.id', $sourceReference->id)
             ->where('entry.source_reference.url', 'https://example.com/source'));
+});
+
+it('reads the entry snapshot instead of reinterpreting it from current source rules', function (): void {
+    $user = User::factory()->create();
+    $source = createEntryControllerSourceReference($user, url: 'https://news.ycombinator.com/item?id=42');
+    $entry = createEntryControllerArticleEntry($user, $source, [
+        'metadata' => ['reading' => ['layout' => 'hacker-news', 'content_url' => 'https://publisher.example.com/original/article']],
+    ]);
+    $source->update([
+        'content_url' => 'https://publisher.example.com/changed/article',
+        'metadata' => ['reading' => ['layout' => 'default']],
+    ]);
+
+    $this->actingAs($user)->get('/entries/'.$entry->id)->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('entries/read')
+        ->where('entry.reading.layout', 'hacker-news')
+        ->where('entry.reading.content_url', 'https://publisher.example.com/original/article')
+        ->where('entry.source_reference.url', 'https://news.ycombinator.com/item?id=42'));
 });
 
 it('redirects incomplete entries from the read route to details', function (): void {

@@ -64,6 +64,7 @@ class SourceReferenceController extends Controller
                 'id' => $sourceReference->id,
                 'user_id' => $sourceReference->user_id,
                 'url' => $sourceReference->url,
+                'content_url' => $sourceReference->content_url,
                 'status' => $sourceReference->status->value,
                 'raw_content' => $sourceReference->raw_content,
                 'screenshot_path' => $sourceReference->screenshot_path,

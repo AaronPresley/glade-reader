@@ -51,10 +51,16 @@ class EntryController extends Controller
 
         $entry->loadMissing('sourceReference');
 
+        // Old entries have no reading snapshot. Preserve their existing presentation
+        // and link base rather than reclassifying saved content using today's site rules.
         return Inertia::render('entries/read', [
             'entry' => [
                 'id' => $entry->id,
                 'content' => $entry->content,
+                'reading' => $entry->metadata['reading'] ?? [
+                    'layout' => 'default',
+                    'content_url' => $entry->sourceReference?->url,
+                ],
                 'archived_at' => $entry->archived_at?->toIso8601String(),
                 'source_reference' => $entry->sourceReference ? [
                     'id' => $entry->sourceReference->id,

@@ -44,6 +44,8 @@ jobs:
           npm ci --ignore-scripts
       - name: Build frontend assets
         run: npm run build
+      - name: Test reader layouts
+        run: npm test
       - name: Run all unit, feature, and domain tests
         run: composer test
 

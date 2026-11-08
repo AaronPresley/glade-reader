@@ -32,13 +32,13 @@ class GetRawContentFromUrlAction
             throw new RuntimeException('Apify API token is not configured.');
         }
 
-        $client = new Client([
+        $client = app(Client::class, ['config' => [
             'base_uri' => 'https://api.apify.com',
             'headers' => [
                 'Authorization' => 'Bearer '.$apiToken,
             ],
             'timeout' => 75,
-        ]);
+        ]]);
 
         $run = $this->startRun($client, $url);
         $runId = $run['id'] ?? null;

@@ -2,7 +2,6 @@
 
 namespace App\Domain\SourceReference\Jobs;
 
-use App\Actions\GetScreenshotFromUrlAction;
 use App\Domain\SourceReference\Enums\SourceReferenceStepStatus;
 use App\Domain\SourceReference\Models\SourceReference;
 use Illuminate\Bus\Batchable;
@@ -23,8 +22,11 @@ class GetSourceReferenceScreenshotJob implements ShouldQueue
         public SourceReference $sourceReference,
     ) {}
 
-    public function handle(GetScreenshotFromUrlAction $getScreenshotFromUrl): void
+    public function handle(): void
     {
+        $flow = $this->sourceReference->metadata['reading']['flow'] ?? 'article';
+        $getScreenshotFromUrl = app(config('reading.flows.'.$flow.'.screenshot'));
+
         SourceReference::query()
             ->whereKey($this->sourceReference->id)
             ->update([
@@ -45,7 +47,7 @@ class GetSourceReferenceScreenshotJob implements ShouldQueue
             $this->sourceReference->id,
         );
 
-        if (! Storage::put($path, $getScreenshotFromUrl->handle($this->sourceReference->url))) {
+        if (! Storage::put($path, $getScreenshotFromUrl->handle($this->sourceReference->content_url ?? $this->sourceReference->url))) {
             throw new RuntimeException('Unable to store source reference screenshot.');
         }
 

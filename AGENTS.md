@@ -7,6 +7,7 @@ Keep all instructions in this file brief.
 - Use domain-driven organization for app code. Put domain-specific code under `app/Domain/<Context>`.
 - If the correct domain context is unclear, confirm the context before adding code, or create a new focused context when the feature clearly introduces one.
 - Push back when a request conflicts with project conventions, prior constraints, or the user's likely intent; explain the better path before changing code.
+- When introducing or changing architecture or business rules, leave concise comments at the owning source-code decisions explaining the business need and why the design serves it. Keep these comments current; external documentation alone is not sufficient.
 
 ## Environment
 
