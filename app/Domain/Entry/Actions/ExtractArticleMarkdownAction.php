@@ -134,6 +134,51 @@ class ExtractArticleMarkdownAction
             $node->parentNode->removeChild($node);
         }
 
+        // Highlighting markup is presentation, not code. Read actual line cells,
+        // keeping indentation/newlines without gutters or serialized span/div tags.
+        foreach ($xpath->query('//pre') as $pre) {
+            $lines = $xpath->query('.//*[contains(concat(" ", normalize-space(@class), " "), " ec-line ")]//*[contains(concat(" ", normalize-space(@class), " "), " code ")]', $pre);
+            $text = $lines->length > 0
+                ? implode("\n", array_map(fn ($line): string => $line->textContent, iterator_to_array($lines)))
+                : $pre->textContent;
+            $code = $document->createElement('code');
+            $language = $pre->getAttribute('data-language');
+            $code->setAttribute('class', $language !== '' ? 'language-'.$language : ($xpath->query('.//code', $pre)->item(0)?->getAttribute('class') ?? ''));
+            $code->appendChild($document->createTextNode($text));
+            $pre->replaceChildren($code);
+        }
+
+        foreach ($xpath->query('//code[not(ancestor::pre)]') as $code) {
+            $code->replaceChildren($document->createTextNode($code->textContent));
+        }
+
+        // Collapse only identical variants within a code widget, never repeated
+        // listings or log lines elsewhere in the article. Keep any real captions.
+        foreach ($xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " code-block-wrapper ")]') as $wrapper) {
+            foreach ($xpath->query('.//button', $wrapper) as $button) {
+                $button->parentNode->removeChild($button);
+            }
+            $pres = iterator_to_array($xpath->query('.//pre', $wrapper));
+
+            if ($pres !== [] && $xpath->query('.//figcaption', $wrapper)->length === 0
+                && count(array_unique(array_map(fn ($pre): string => $pre->textContent, $pres))) === 1) {
+                $wrapper->parentNode->replaceChild($pres[0], $wrapper);
+            }
+        }
+
+        // Markdown cannot play a video, but its source and caption must survive.
+        foreach ($xpath->query('//video') as $video) {
+            $src = $video->getAttribute('src') ?: $xpath->query('.//source[@src]', $video)->item(0)?->getAttribute('src');
+
+            if ($src) {
+                $link = $document->createElement('a', 'Video');
+                $link->setAttribute('href', $src);
+                $paragraph = $document->createElement('p');
+                $paragraph->appendChild($link);
+                $video->parentNode->replaceChild($paragraph, $video);
+            }
+        }
+
         $tables = [];
 
         foreach ($xpath->query('//table[not(ancestor::table)]') as $table) {

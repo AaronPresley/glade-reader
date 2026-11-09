@@ -463,6 +463,29 @@ HTML;
         ->and($entry->content)->not->toContain('Unrelated script wording', 'Unrelated style wording');
 });
 
+it('renders highlighted code without theme duplicates or UI markup and retains video destinations', function (): void {
+    $code = '<pre data-language="rust"><code><div class="ec-line"><div class="gutter">101</div><div class="code">fn main() {</div></div>'
+        .'<div class="ec-line"><div class="gutter">102</div><div class="code">    println!("&lt;done&gt;");</div></div>'
+        .'<div class="ec-line"><div class="gutter">103</div><div class="code">}</div></div></code></pre>';
+    $html = '<article><p>Use <code><span class="justif-seg">&lt;dialog&gt;</span></code> literally.</p>'
+        .'<div class="code-block-wrapper"><div class="theme-light"><button>Copy code</button>'.$code.'</div>'
+        .'<div class="theme-dark"><button>Copied!</button>'.$code.'</div></div>'
+        .'<figure><video><source src="/demo.mp4" type="video/mp4">Your browser does not support video.</video>'
+        .'<figcaption>Recorded demonstration.</figcaption></figure></article>';
+    $history = [];
+    fakeSiteReadingProviders([
+        ...siteReadingScreenshotResponses(), ...siteReadingHtmlResponses($html), siteReadingPlanResponse(),
+    ], $history);
+
+    $this->post('/source-references', ['url' => 'https://publisher.example.com/highlighted-code'])->assertRedirect();
+
+    $entry = Entry::firstOrFail();
+    expect($entry->status)->toBe(EntryStatus::Completed)
+        ->and($entry->content)->toContain('Use `<dialog>` literally.', "```rust\nfn main() {\n    println!(\"<done>\");\n}\n```", '[Video](/demo.mp4)', 'Recorded demonstration.')
+        ->and(substr_count($entry->content, 'fn main()'))->toBe(1)
+        ->and($entry->content)->not->toContain('justif-seg', '<div', '101', '102', 'Copy code', 'Copied!', 'Your browser does not support video.');
+});
+
 it('fails generation rather than publishing duplicated content from overlapping patterns', function (): void {
     $history = [];
     fakeSiteReadingProviders([
