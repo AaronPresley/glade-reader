@@ -187,7 +187,11 @@ class BuildArticleOutlineAction
         $parent = &$stack[array_key_last($stack)];
         $this->appendText($parent, $region['text_bytes'], $region['first_text'], $region['last_text']);
 
-        $parent['descendants'][$region['tag']] = ($parent['descendants'][$region['tag']] ?? 0) + 1;
+        // Ancestor frames have no opening bytes in this slice. Counting them as
+        // source tags encourages regexes to require markup that is not present.
+        if ($region['open'] !== '') {
+            $parent['descendants'][$region['tag']] = ($parent['descendants'][$region['tag']] ?? 0) + 1;
+        }
 
         foreach ($region['descendants'] as $tag => $count) {
             $parent['descendants'][$tag] = ($parent['descendants'][$tag] ?? 0) + $count;

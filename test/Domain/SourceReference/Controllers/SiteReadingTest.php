@@ -180,6 +180,18 @@ it('extracts long paragraphs and code across bounded chunks without duplicating 
         $prompt = $input[0]['text'];
         $outline = explode("Source outline (JSON):\n", $prompt, 2)[1];
         expect(strlen($outline))->toBeLessThanOrEqual(60000);
+        $boundary = json_decode(explode("\n", explode('Chunk boundary state (JSON): ', $prompt, 2)[1], 2)[0], true);
+        expect($boundary)->toBe([
+            'starts_inside_article' => $index > 0,
+            'ends_inside_article' => $index < count($chunks) - 1,
+        ]);
+
+        if ($index > 0) {
+            foreach (json_decode($outline, true) as $region) {
+                // Earlier article wrappers are context, not tags in this source slice.
+                expect($region['descendants'] ?? [])->not->toHaveKey('article');
+            }
+        }
 
         foreach (json_decode($outline, true) as $region) {
             foreach (['html', 'start_snippet', 'end_snippet'] as $key) {

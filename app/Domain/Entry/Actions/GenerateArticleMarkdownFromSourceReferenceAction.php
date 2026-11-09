@@ -228,6 +228,12 @@ class GenerateArticleMarkdownFromSourceReferenceAction
         $contentUrl = $sourceReference->content_url ?? $sourceReference->url;
         $outline = $chunk['outline'];
         $context = json_encode($chunk['context'], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        // Explicit edge state distinguishes an article continuation from a complete
+        // article element, especially when a large SVG/code block spans windows.
+        $boundary = json_encode([
+            'starts_inside_article' => in_array('article', array_column($chunk['context'], 'tag'), true),
+            'ends_inside_article' => in_array('article', array_column($chunk['ancestors'], 'tag'), true),
+        ], JSON_THROW_ON_ERROR);
         $failure = $failures === [] ? null : $failures[array_key_last($failures)];
         $repair = '';
 
@@ -239,7 +245,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
         }
         $example = json_encode([
             'version' => 1,
-            'objects' => [['type' => 'article', 'patterns' => ['~(?<content><article\b[^>]*>.*?</article>)~is']]],
+            'objects' => [['type' => 'article', 'patterns' => ['~\A(?<content>[\s\S]+)\z~']]],
         ], JSON_THROW_ON_ERROR);
 
         return <<<PROMPT
@@ -247,7 +253,12 @@ Review the supplied source outline and identify article content ONLY within this
 
 {$example}
 
-This is one disjoint window of a larger saved page. Each regex runs only against this ORIGINAL source slice, not the entire page and not the outline. Ancestor context describes tags opened in earlier chunks; those tags are not inserted into this slice. A chunk may start/end inside a paragraph, quotation, list, table or code block. Capture original continuation text too; do not require an article opening/closing tag in every chunk. You can use \\A and \\z for the source-slice boundaries. Adjacent captures across chunks are rejoined byte-for-byte before conversion. Never return synthetic wrapper tags or replacement text.
+The example selects an ENTIRE source slice. Use it when the whole slice belongs to the article, including a continuation inside SVG, code, text, or another nested element. Do not require those elements to open or close in this slice. Do not fragment an included subtree into individual tags: that loses intervening text and partial elements. The example does not mean every slice is article content; exclude identified navigation and other unrelated regions.
+
+This is one disjoint window of a larger saved page. Each regex runs only against this ORIGINAL source slice, not the entire page and not the outline. Ancestor context describes tags opened in earlier chunks; those tags are not inserted into this slice. A chunk may start/end inside a paragraph, quotation, list, table or code block. Capture original continuation text too; do not require an article opening/closing tag in every chunk. Use the absolute source-slice anchors shown in the example when a selected region continues beyond an edge. Adjacent captures across chunks are rejoined byte-for-byte before conversion. Never return synthetic wrapper tags or replacement text.
+
+Chunk boundary state (JSON): {$boundary}
+When starts_inside_article is true, an article opening tag is not needed to select continuation content. When ends_inside_article is true, the article region at the end continues into a later slice: select that continuation through the slice end instead of requiring its closing tag or a lookahead for it. Exact snippets and descendant counts describe only source in this slice, not ancestor context.
 
 Return {"version":1,"objects":[]} if this chunk contains no article content. Do not select navigation or a footer merely because other chunks contain an article. Context is not selectable content. Chunk source bytes: {$chunk['start']}..{$chunk['end']} (end exclusive).
 Ancestor context (JSON): {$context}
