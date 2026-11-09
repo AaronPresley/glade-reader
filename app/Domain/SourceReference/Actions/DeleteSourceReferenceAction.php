@@ -13,6 +13,8 @@ class DeleteSourceReferenceAction
             Storage::delete($sourceReference->screenshot_path);
         }
 
+        Storage::deleteDirectory($sourceReference->diagramDirectory());
+
         $sourceReference->delete();
     }
 }

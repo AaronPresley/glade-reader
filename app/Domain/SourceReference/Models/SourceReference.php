@@ -39,6 +39,12 @@ class SourceReference extends Model
         return $this->hasOne(Entry::class)->where('type', EntryType::Article->value);
     }
 
+    public function diagramDirectory(): string
+    {
+        // Capture assets survive entry regeneration and are removed with the source.
+        return 'source-references/'.$this->id.'/diagrams';
+    }
+
     /**
      * Get the attributes that should be cast.
      *

@@ -61,6 +61,8 @@ Sources expose `id`, `url`, `status`, `raw_content`, `screenshot_path`, `image_u
 
 Entries expose `id`, `source_reference_id`, `type`, `status`, `content`, `content_html`, `metadata`, `archived_at`, `created_at`, and `updated_at`. `content` is Markdown; `content_html` renders it using CommonMark with embedded raw HTML stripped and unsafe links disabled. Both are null when content is not yet available. HTML is an article fragment, not the styled app page. Use `source_reference_id` to retrieve its source.
 
+Inline SVG diagrams are saved as private images and referenced by absolute URLs in the Markdown and rendered HTML. Fetch these `/source-references/{id}/diagrams/{sha256}.svg` URLs using a browser session or a Bearer token with `read` permission for the source owner. They do not expire, but deleting the source removes its diagram files. SVGs are served as sandboxed images, not trusted HTML: scripts and external resources are blocked, including when opened directly. This preserves self-contained source diagrams without LLM transcription; diagrams relying on page CSS or external resources may not reproduce the original appearance.
+
 Statuses preserve the model’s uppercase enum values. Source statuses: `NEW`, `PENDING`, `COMPLETED`, `FAILED`. Entry statuses: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`. Archived entries have a non-null `archived_at`.
 
 Missing, invalid, expired, or revoked tokens return 401. Tokens without the endpoint’s required ability return 403. API requests are limited to 60 per minute per authenticated user (429 when exceeded).

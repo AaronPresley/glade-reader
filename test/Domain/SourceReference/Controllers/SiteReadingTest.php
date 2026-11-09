@@ -486,6 +486,55 @@ it('renders highlighted code without theme duplicates or UI markup and retains v
         ->and($entry->content)->not->toContain('justif-seg', '<div', '101', '102', 'Copy code', 'Copied!', 'Your browser does not support video.');
 });
 
+it('preserves saved SVG diagrams as private images without changing their drawing data', function (): void {
+    $svg = file_get_contents(__DIR__.'/../Fixtures/scooter-can-diagram.svg');
+    $history = [];
+    fakeSiteReadingProviders([
+        ...siteReadingScreenshotResponses(),
+        ...siteReadingHtmlResponses('<article><nav><svg><path d="M0 0 L5 5"/></svg></nav>'
+            .'<h1>Protocol diagrams</h1><p>Before '.$svg.' after.</p>'
+            .'<figure>'.$svg.'<figcaption>Original CAN layout.</figcaption></figure></article>'),
+        siteReadingPlanResponse(),
+    ], $history);
+
+    $this->post('/source-references', ['url' => 'https://publisher.example.com/diagrams'])->assertRedirect();
+    $entry = Entry::firstOrFail();
+    expect($entry->status)->toBe(EntryStatus::Completed);
+    preg_match_all('~!\[[^\]]*\]\(([^)]+/diagrams/[^)]+)\)~', $entry->content, $images);
+    expect($images[1])->toHaveCount(2);
+    expect($images[1][0])->toBe($images[1][1]);
+    expect($entry->content)->toContain('Before', 'after.', 'Original CAN layout.')
+        ->not->toContain('<svg', '<path', '<symbol');
+
+    $image = $images[1][0];
+    $this->get($image)->assertOk()->assertContent($svg)
+        ->assertHeader('Content-Type', 'image/svg+xml')
+        ->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+        ->assertHeader('Cache-Control', 'no-cache, private');
+    $this->get(str_replace(hash('sha256', $svg), str_repeat('0', 64), $image))->assertNotFound();
+    $owner = auth()->user();
+    $this->actingAs(User::factory()->create())->get($image)->assertNotFound();
+    $this->post('/logout');
+    $this->get($image)->assertRedirect('/login');
+
+    $this->app['auth']->forgetGuards();
+    $this->withToken($owner->createToken('Cannot read', ['entries:generate'])->plainTextToken)
+        ->getJson($image)->assertForbidden();
+    $this->app['auth']->forgetGuards();
+    $this->withToken($owner->createToken('Diagram reader', ['read'])->plainTextToken)
+        ->get($image)->assertOk()->assertContent($svg);
+    $this->getJson('/api/entries/'.$entry->id)->assertOk()
+        ->assertJsonPath('data.content_html', fn (string $html): bool => substr_count($html, '<img ') === 2
+            && str_contains($html, $image));
+
+    $this->actingAs($owner)->delete('/source-references/'.$entry->source_reference_id)->assertRedirect();
+    $this->get($image)->assertNotFound();
+    expect(Storage::allFiles())->toBe([]);
+    Http::assertNothingSent();
+    expect($history)->toHaveCount(8);
+});
+
 it('fails generation rather than publishing duplicated content from overlapping patterns', function (): void {
     $history = [];
     fakeSiteReadingProviders([

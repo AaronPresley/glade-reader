@@ -57,7 +57,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
         $chunk = app(BuildArticleChunkAction::class)->handle($rawHtml, $checkpoint['next_offset'], $checkpoint['ancestors']);
 
         if ($chunk === null) {
-            return $this->result($rawHtml, $checkpoint);
+            return $this->result($sourceReference, $checkpoint);
         }
 
         // Full article text stays local. Send the layout reference only once,
@@ -176,7 +176,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
         $checkpoint['ancestors'] = $chunk['ancestors'];
 
         if ($chunk['end'] >= strlen($rawHtml)) {
-            return $this->result($rawHtml, $checkpoint);
+            return $this->result($sourceReference, $checkpoint);
         }
 
         return [
@@ -188,7 +188,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
         ];
     }
 
-    private function result(string $rawHtml, array $checkpoint): array
+    private function result(SourceReference $sourceReference, array $checkpoint): array
     {
         $ranges = [];
         $previous = null;
@@ -212,7 +212,7 @@ class GenerateArticleMarkdownFromSourceReferenceAction
 
         // No partial article is published: render once, after all chunks finish.
         return [
-            'markdown' => app(ExtractArticleMarkdownAction::class)->renderRanges($rawHtml, $ranges),
+            'markdown' => app(ExtractArticleMarkdownAction::class)->renderRanges($sourceReference->raw_content, $ranges, $sourceReference),
             'provider' => 'open_router', 'model' => $checkpoint['model'], 'usage' => $checkpoint['usage'],
             'raw_html_truncated' => false,
             'extraction' => [

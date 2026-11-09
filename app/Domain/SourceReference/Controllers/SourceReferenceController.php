@@ -11,6 +11,7 @@ use App\Domain\SourceReference\Requests\CheckSourceReferenceRequest;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
@@ -89,6 +90,23 @@ class SourceReferenceController extends Controller
         $deleteSourceReference->handle($sourceReference);
 
         return redirect()->route('source-references.index');
+    }
+
+    public function diagram(Request $request, SourceReference $sourceReference, string $diagram): HttpResponse
+    {
+        $this->authorizeSourceReference($request, $sourceReference);
+        abort_if($request->user()->currentAccessToken() && ! $request->user()->tokenCan('read'), 403);
+        $path = $sourceReference->diagramDirectory().'/'.$diagram.'.svg';
+        abort_unless(Storage::exists($path), 404);
+
+        // Treat captured SVG as an untrusted image, never inline article HTML.
+        // Sandbox direct navigation too, blocking scripts and external resources.
+        return response(Storage::get($path), 200, [
+            'Content-Type' => 'image/svg+xml',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            'Cache-Control' => 'private, no-cache',
+        ]);
     }
 
     private function authorizeSourceReference(Request $request, SourceReference $sourceReference): void

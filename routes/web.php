@@ -15,6 +15,14 @@ Route::post('/login', [LoginController::class, 'store']);
 Route::get('/register', [RegisterController::class, 'create']);
 Route::post('/register', [RegisterController::class, 'store']);
 
+// Image URLs work in the signed-in reader and for API clients using read tokens.
+// Never expose private captures through public storage or expiring Markdown URLs.
+Route::get('/source-references/{sourceReference}/diagrams/{diagram}.svg', [SourceReferenceController::class, 'diagram'])
+    ->whereNumber('sourceReference')
+    ->where('diagram', '[a-f0-9]{64}')
+    ->middleware('auth:web,sanctum')
+    ->name('source-references.diagrams.show');
+
 Route::middleware('auth')->group(function (): void {
     Route::get('/settings/api-tokens', [ApiTokenController::class, 'index'])->name('settings.api-tokens.index');
     Route::post('/settings/api-tokens', [ApiTokenController::class, 'store'])->middleware('throttle:10,1');

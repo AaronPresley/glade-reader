@@ -2,6 +2,7 @@
 
 namespace App\Domain\Entry\Actions;
 
+use App\Domain\SourceReference\Models\SourceReference;
 use DOMDocument;
 use DOMXPath;
 use League\HTMLToMarkdown\HtmlConverter;
@@ -9,9 +10,9 @@ use RuntimeException;
 
 class ExtractArticleMarkdownAction
 {
-    public function handle(string $rawHtml, array $plan): string
+    public function handle(string $rawHtml, array $plan, SourceReference $sourceReference): string
     {
-        return $this->renderRanges($rawHtml, $this->captureRanges($rawHtml, $plan));
+        return $this->renderRanges($rawHtml, $this->captureRanges($rawHtml, $plan), $sourceReference);
     }
 
     public function captureRanges(string $rawHtml, array $plan): array
@@ -92,7 +93,7 @@ class ExtractArticleMarkdownAction
         return $ranges;
     }
 
-    public function renderRanges(string $rawHtml, array $ranges): string
+    public function renderRanges(string $rawHtml, array $ranges, SourceReference $sourceReference): string
     {
         if ($ranges === []) {
             throw new RuntimeException('Extraction did not select any article content.');
@@ -122,7 +123,8 @@ class ExtractArticleMarkdownAction
         $previousErrors = libxml_use_internal_errors(true);
 
         try {
-            $document->loadHTML('<?xml encoding="UTF-8">'.implode("\n\n", $fragments), LIBXML_NONET);
+            $html = app(PreserveArticleSvgAction::class)->handle(implode("\n\n", $fragments), $sourceReference);
+            $document->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NONET);
         } finally {
             libxml_clear_errors();
             libxml_use_internal_errors($previousErrors);

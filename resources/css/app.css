@@ -314,6 +314,10 @@
     .book-prose img {
         @apply block w-full;
     }
+    /* Source diagrams have their own ink colors, independent of reader theme. */
+    .book-prose img[src*='/diagrams/'] {
+        background-color: white;
+    }
     .book-prose table {
         @apply my-6 block max-w-full overflow-x-auto text-base;
     }
