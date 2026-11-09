@@ -27,7 +27,8 @@ class ApiTokenController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate(['name' => ['required', 'string', 'max:255']]);
-        $token = $request->user()->createToken($validated['name'], ['read', 'sources:create']);
+        // New permissions require a new token so existing integrations stay least-privileged.
+        $token = $request->user()->createToken($validated['name'], ['read', 'sources:create', 'entries:generate']);
 
         Inertia::flash('newToken', $token->plainTextToken);
 

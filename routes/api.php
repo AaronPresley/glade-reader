@@ -14,3 +14,7 @@ Route::middleware(['auth:sanctum', CheckAbilities::class.':read', 'throttle:60,1
 
 Route::post('/source-references', [ApiSourceReferenceController::class, 'store'])
     ->middleware(['auth:sanctum', CheckAbilities::class.':sources:create', 'throttle:60,1']);
+
+Route::post('/entries/{entry}/regenerate', [ApiEntryController::class, 'regenerate'])
+    ->whereNumber('entry')
+    ->middleware(['auth:sanctum', CheckAbilities::class.':entries:generate', 'throttle:60,1']);

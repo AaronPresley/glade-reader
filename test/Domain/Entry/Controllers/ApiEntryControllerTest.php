@@ -7,6 +7,8 @@ use App\Domain\SourceReference\Enums\SourceReferenceStatus;
 use App\Domain\SourceReference\Models\SourceReference;
 use App\Domain\User\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -21,6 +23,68 @@ it('requires a valid read token to read entries', function (): void {
 
 it('does not authenticate the API with a browser session', function (): void {
     $this->actingAs(User::factory()->create(), 'web')->getJson('/api/entries')->assertUnauthorized();
+    $this->postJson('/api/entries/1/regenerate')->assertUnauthorized();
+});
+
+it('requires the generation ability rather than read or URL submission access', function (): void {
+    $this->postJson('/api/entries/1/regenerate')->assertUnauthorized();
+    $this->withToken('invalid')->postJson('/api/entries/1/regenerate')->assertUnauthorized();
+
+    $user = User::factory()->create();
+    foreach ([[], ['read'], ['read', 'sources:create']] as $abilities) {
+        $this->app['auth']->forgetGuards();
+        $this->withToken($user->createToken('Existing integration', $abilities)->plainTextToken)
+            ->postJson('/api/entries/1/regenerate')->assertForbidden();
+    }
+});
+
+it('queues regeneration of only an owned entry using its existing saved capture', function (): void {
+    Storage::fake('local');
+    config(['filesystems.default' => 'local', 'queue.default' => 'database']);
+    Storage::put('captures/article.png', 'saved screenshot');
+
+    $user = User::factory()->create();
+    $other = User::factory()->create();
+    $entries = collect([$user, $other])->map(function (User $owner): Entry {
+        $source = SourceReference::create([
+            'user_id' => $owner->id, 'url' => 'https://example.com/article',
+            'status' => SourceReferenceStatus::Completed,
+            'raw_content' => '<article><p>Saved article.</p></article>',
+            'screenshot_path' => 'captures/article.png',
+        ]);
+
+        return Entry::create([
+            'user_id' => $owner->id, 'source_reference_id' => $source->id,
+            'type' => EntryType::Article, 'status' => EntryStatus::Failed,
+            'content' => 'Old content',
+            'metadata' => ['generation' => ['run_id' => 'old-run', 'error' => 'Old failure']],
+        ]);
+    });
+
+    $this->withToken($user->createToken('Generator', ['entries:generate'])->plainTextToken);
+    $this->postJson('/api/entries/'.$entries[1]->id.'/regenerate')->assertNotFound();
+    $this->postJson('/api/entries/99999/regenerate')->assertNotFound();
+    $this->assertDatabaseCount('jobs', 0);
+
+    $response = $this->postJson('/api/entries/'.$entries[0]->id.'/regenerate')->assertAccepted()
+        ->assertJsonPath('data.id', $entries[0]->id)->assertJsonPath('data.status', 'PENDING');
+    $entry = $entries[0]->fresh();
+    expect(Str::isUuid($response->json('data.run_id')))->toBeTrue();
+    expect($entry->metadata['generation'])->toBe(['run_id' => $response->json('data.run_id')]);
+    expect($entry->content)->toBeNull();
+    expect($entry->source_reference_id)->toBe($entries[0]->source_reference_id);
+    expect($entry->sourceReference->raw_content)->toBe('<article><p>Saved article.</p></article>');
+    expect($entry->sourceReference->status)->toBe(SourceReferenceStatus::Completed);
+    Storage::assertExists('captures/article.png');
+    $this->assertDatabaseCount('entries', 2);
+    $this->assertDatabaseCount('source_references', 2);
+    $this->assertDatabaseCount('jobs', 1);
+
+    Storage::delete('captures/article.png');
+    $this->postJson('/api/entries/'.$entry->id.'/regenerate')->assertUnprocessable()
+        ->assertJsonPath('message', 'Source reference screenshot file does not exist.');
+    expect($entry->fresh()->metadata['generation']['run_id'])->toBe($response->json('data.run_id'));
+    $this->assertDatabaseCount('jobs', 1);
 });
 
 it('reads only owned entries including archived entries and rendered HTML', function (): void {

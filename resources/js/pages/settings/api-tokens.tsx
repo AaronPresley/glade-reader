@@ -43,11 +43,13 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
             <div className="space-y-4">
                 <h1 className="page-title">API tokens</h1>
                 <p className="text-sm text-muted-foreground">
-                    Give your integrations access to read your sources and entries and add new URLs. Tokens cannot edit
-                    or delete data or access users. Keep them private; they remain valid until revoked.
+                    Give your integrations access to read your sources and entries, add URLs, and regenerate entries.
+                    Regeneration replaces existing article content and may incur AI provider costs. Tokens cannot delete
+                    data or access users. Keep them private; they remain valid until revoked.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                    Older read-only tokens cannot add URLs. Generate a new token to enable URL submission.
+                    Existing tokens keep their permissions. Generate a new token to enable regeneration or URL
+                    submission if your current token lacks access.
                 </p>
             </div>
 
@@ -118,9 +120,17 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
                                 <div className="min-w-0 space-y-1">
                                     <p className="break-words font-medium">{token.name}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        {token.abilities.includes('sources:create') || token.abilities.includes('*')
-                                            ? 'Read + add URLs'
-                                            : 'Read-only'}{' '}
+                                        {[
+                                            ['read', 'Read'],
+                                            ['sources:create', 'add URLs'],
+                                            ['entries:generate', 'regenerate entries'],
+                                        ]
+                                            .filter(
+                                                ([ability]) =>
+                                                    token.abilities.includes(ability) || token.abilities.includes('*'),
+                                            )
+                                            .map(([, label]) => label)
+                                            .join(' + ') || 'No permissions'}{' '}
                                         · Created {token.created_at ? new Date(token.created_at).toLocaleString() : '—'}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
@@ -173,10 +183,18 @@ export default function ApiTokens({ tokens, apiUrl }: { tokens: Token[]; apiUrl:
                         <code>POST /api/source-references</code> with JSON{' '}
                         <code>{'{"url":"https://example.com/article"}'}</code>
                     </li>
+                    <li>
+                        <code>POST /api/entries/&#123;id&#125;/regenerate</code> with no body
+                    </li>
                 </ul>
                 <p className="text-sm text-muted-foreground">
                     Adding a URL requires the <code>sources:create</code> permission and returns the new source with
                     status 201. Processing runs in the background; use the source’s ID to check its progress.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    Regeneration requires <code>entries:generate</code> and reuses saved HTML and the screenshot. It
+                    returns status 202 with the entry’s ID, status, and new <code>run_id</code>. Read the entry to
+                    follow progress; no new source or entry is created.
                 </p>
                 <p className="text-sm text-muted-foreground">
                     Entries include Markdown in <code>content</code> and rendered HTML in <code>content_html</code>.

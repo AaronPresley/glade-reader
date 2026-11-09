@@ -1,20 +1,21 @@
 # API
 
-Sign in and open **Settings → API tokens** (`/settings/api-tokens`). Give the token a name, generate it, and copy the secret immediately. The secret is available only in that response and is not retained in browser history. Only a hash is stored in the database. New tokens have the `read` and `sources:create` abilities, remain valid until revoked, and can be revoked on the same page. Previously issued read-only tokens retain their permissions: generate a new token to submit URLs. Existing tokens are not upgraded automatically.
+Sign in and open **Settings → API tokens** (`/settings/api-tokens`). Give the token a name, generate it, and copy the secret immediately. The secret is available only in that response and is not retained in browser history. Only a hash is stored in the database. New tokens have the `read`, `sources:create`, and `entries:generate` abilities, remain valid until revoked, and can be revoked on the same page. Existing tokens are not upgraded automatically: generate a new token if yours lacks URL submission or regeneration permission.
 
 Use HTTPS and send `Authorization: Bearer YOUR_TOKEN` and `Accept: application/json` on each request. Browser sessions alone do not authenticate API requests. API tokens cannot authenticate the web UI or manage tokens.
 
 ## Endpoints
 
-| Method | Path                          | Returns                                                   |
-| ------ | ----------------------------- | --------------------------------------------------------- |
-| GET    | `/api/source-references`      | Your sources, newest ID first                             |
-| GET    | `/api/source-references/{id}` | One of your sources                                       |
-| POST   | `/api/source-references`      | Creates a source and queues processing (201)              |
-| GET    | `/api/entries`                | Your entries, including archived entries, newest ID first |
-| GET    | `/api/entries/{id}`           | One of your entries                                       |
+| Method | Path                           | Returns                                                    |
+| ------ | ------------------------------ | ---------------------------------------------------------- |
+| GET    | `/api/source-references`       | Your sources, newest ID first                              |
+| GET    | `/api/source-references/{id}`  | One of your sources                                        |
+| POST   | `/api/source-references`       | Creates a source and queues processing (201)               |
+| GET    | `/api/entries`                 | Your entries, including archived entries, newest ID first  |
+| GET    | `/api/entries/{id}`            | One of your entries                                        |
+| POST   | `/api/entries/{id}/regenerate` | Regenerates an existing entry from its saved capture (202) |
 
-Responses wrap records in `data`. Lists contain up to 25 records and include Laravel `links` and `meta` pagination fields. Follow `links.next` or pass `?page=2`, etc. No users, user IDs, credentials, or token data are serialized. Other users’ records and missing IDs return 404. Apart from adding URLs, the API is read-only: no update, delete, archive, or manual article-generation endpoints.
+Responses wrap records in `data`. Lists contain up to 25 records and include Laravel `links` and `meta` pagination fields. Follow `links.next` or pass `?page=2`, etc. No users, user IDs, credentials, or token data are serialized. Other users’ records and missing IDs return 404. Apart from adding URLs and regenerating entries, the API is read-only: no update, delete, or archive endpoints.
 
 ## Add a URL
 
@@ -29,6 +30,30 @@ curl -X POST 'https://YOUR_GLADE_HOST/api/source-references' \
 ```
 
 URLs must use HTTP or HTTPS and be at most 2048 characters; missing or invalid URLs return 422 with an `errors.url` message. The source belongs to the authenticated token’s owner; ownership, status, and content cannot be set in the request. Success returns 201 with the source in `data`, including its `id` and initial `NEW` status. Use `GET /api/source-references/{id}` to follow processing. Processing and automatic article generation follow the same queue workflow as URLs added through the web UI. Each submission creates a new source, including repeat submissions of the same URL.
+
+## Regenerate an entry
+
+Send `POST /api/entries/{id}/regenerate` with no body and a token with `entries:generate`. This replaces the entry’s existing content and starts a new generation run using the same saved HTML and screenshot. It does not recapture the page or create another source or entry. Provider calls run in the background and may incur costs.
+
+```bash
+curl -X POST 'https://YOUR_GLADE_HOST/api/entries/37/regenerate' \
+  -H 'Authorization: Bearer YOUR_TOKEN' \
+  -H 'Accept: application/json'
+```
+
+Success returns 202:
+
+```json
+{
+    "data": {
+        "id": 37,
+        "status": "PENDING",
+        "run_id": "a25cbcf3-3234-4b21-b1d0-4b06cd3b70a1"
+    }
+}
+```
+
+Use `GET /api/entries/{id}` with `read` permission to follow the status and `metadata.generation`, including the matching `run_id`, checkpoint progress, recorded retry failures, and final error or extraction plan. A 202 confirms acceptance, not successful processing or complete extraction. An unavailable capture (source not completed, missing HTML or screenshot) returns 422 with a `message` and leaves the existing entry unchanged. Every accepted POST starts a new run, even if one is already pending or processing; it clears previous content and generation metadata. Work from an older run cannot overwrite the new run. If a response is lost, read the current run before submitting again.
 
 ## Reading data
 
