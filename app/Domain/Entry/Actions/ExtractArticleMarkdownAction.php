@@ -50,10 +50,24 @@ class ExtractArticleMarkdownAction
                         throw new RuntimeException($label.' must be a regex of at most 8192 bytes.');
                     }
 
-                    $count = @preg_match_all($pattern, $rawHtml, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
+                    // PCRE reports malformed syntax as "Internal error" through
+                    // preg_last_error_msg(). Retain its compiler warning so the
+                    // model can repair the actual defect instead of guessing.
+                    $regexError = null;
+                    set_error_handler(function (int $severity, string $message) use (&$regexError): bool {
+                        $regexError = $message;
+
+                        return true;
+                    }, E_WARNING);
+
+                    try {
+                        $count = preg_match_all($pattern, $rawHtml, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE | PREG_UNMATCHED_AS_NULL);
+                    } finally {
+                        restore_error_handler();
+                    }
 
                     if ($count === false) {
-                        throw new RuntimeException($label.' failed: '.preg_last_error_msg());
+                        throw new RuntimeException($label.' failed: '.($regexError ?? preg_last_error_msg()));
                     }
 
                     if ($count === 0) {

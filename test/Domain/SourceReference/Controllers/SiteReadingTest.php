@@ -359,7 +359,7 @@ it('resumes a failed chunk without repeating completed calls or publishing parti
     expect($entry->refresh()->status)->toBe(EntryStatus::Completed)->and($history)->toHaveCount(3);
 });
 
-it('retains a rejected plan and gives its validation error to the next chunk attempt', function (): void {
+it('retains a rejected plan and gives its validation error to the next chunk attempt', function (string $badPattern, string $error): void {
     config(['queue.default' => 'database']);
     Storage::put('fixture.jpg', 'fixture-screenshot');
     $source = SourceReference::create([
@@ -367,7 +367,6 @@ it('retains a rejected plan and gives its validation error to the next chunk att
         'status' => SourceReferenceStatus::Completed, 'screenshot_path' => 'fixture.jpg',
         'raw_content' => '<article><h1>Saved article</h1><p>All original words.</p></article>',
     ]);
-    $badPattern = '~(?<content><h2>Missing heading</h2>)~';
     $rejected = siteReadingPlanResponse([['type' => 'article', 'patterns' => [
         '~(?<content><h1>.*?</h1>)~', $badPattern,
     ]]]);
@@ -381,7 +380,7 @@ it('retains a rejected plan and gives its validation error to the next chunk att
         ->and($entry->content)->toBeNull()
         ->and($entry->metadata['generation']['usage']['total_tokens'])->toBe(42);
     $failure = $entry->metadata['generation']['checkpoint']['failures'][0];
-    expect($failure['error'])->toBe('Object 1, pattern 2 did not match the saved HTML.')
+    expect($failure['error'])->toMatch($error)
         ->and($failure['start'])->toBe(0)
         ->and($failure['end'])->toBe(strlen($source->raw_content))
         ->and($failure['response'])->toBe(json_decode((string) $rejected->getBody(), true));
@@ -394,7 +393,10 @@ it('retains a rejected plan and gives its validation error to the next chunk att
         ->and($history)->toHaveCount(2);
     $retry = json_decode((string) $history[1]['request']->getBody(), true);
     expect($retry['messages'][1]['content'][0]['text'])->toContain($failure['error'], 'Missing heading');
-});
+})->with([
+    'no matching source' => ['~(?<content><h2>Missing heading</h2>)~', '/^Object 1, pattern 2 did not match the saved HTML\.$/'],
+    'malformed regex' => ['~(?<content><h2>Missing heading</h2>~', '/^Object 1, pattern 2 failed: .*missing closing parenthesis/'],
+]);
 
 it('discards in-flight work and old metrics when a manual reprocess starts a new run', function (): void {
     config(['queue.default' => 'database']);

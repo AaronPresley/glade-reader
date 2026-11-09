@@ -245,7 +245,8 @@ class GenerateArticleMarkdownFromSourceReferenceAction
         }
         $example = json_encode([
             'version' => 1,
-            'objects' => [['type' => 'article', 'patterns' => ['~\A(?<content>[\s\S]+)\z~']]],
+            // A backslash-free equivalent avoids JSON over-escaping on continuations.
+            'objects' => [['type' => 'article', 'patterns' => ['~^(?<content>.+)$~sD']]],
         ], JSON_THROW_ON_ERROR);
 
         return <<<PROMPT
@@ -253,7 +254,7 @@ Review the supplied source outline and identify article content ONLY within this
 
 {$example}
 
-The example selects an ENTIRE source slice. Use it when the whole slice belongs to the article, including a continuation inside SVG, code, text, or another nested element. Do not require those elements to open or close in this slice. Do not fragment an included subtree into individual tags: that loses intervening text and partial elements. The example does not mean every slice is article content; exclude identified navigation and other unrelated regions.
+The example selects an ENTIRE source slice, including newlines, without any JSON backslash escaping. Copy that pattern exactly when the whole slice belongs to the article, including a continuation inside SVG, code, text, or another nested element. Do not require those elements to open or close in this slice. Do not fragment an included subtree into individual tags: that loses intervening text and partial elements. The example does not mean every slice is article content; exclude identified navigation and other unrelated regions.
 
 This is one disjoint window of a larger saved page. Each regex runs only against this ORIGINAL source slice, not the entire page and not the outline. Ancestor context describes tags opened in earlier chunks; those tags are not inserted into this slice. A chunk may start/end inside a paragraph, quotation, list, table or code block. Capture original continuation text too; do not require an article opening/closing tag in every chunk. Use the absolute source-slice anchors shown in the example when a selected region continues beyond an edge. Adjacent captures across chunks are rejoined byte-for-byte before conversion. Never return synthetic wrapper tags or replacement text.
 
@@ -275,7 +276,7 @@ Chunks are processed in source order. Within this chunk, objects and patterns ar
 
 Select a complete content region when possible rather than one regex per paragraph. Use additional patterns when the title, body, or other article regions are separated. They all belong to the article object for now; do not classify individual headings or paragraphs as new object types. Capture original HTML, including meaningful headings, paragraphs, lists, tables, code, quotations, captions, links and footnotes. Local code will convert those fragments to Markdown, so do not return Markdown, replacement prose, literal article text, or summaries.
 
-Exclude navigation, ads, sharing controls, forms, recommendations, duplicate responsive/theme copies, code line-number controls and unrelated comments. Do not drop meaningful accessible data tables or collapsed footnotes simply because they are hidden. Scripts and styles are removed locally. Do not invent text for diagrams or media that have no source text.
+Exclude navigation, ads, sharing controls, forms, recommendations, duplicate responsive article copies and unrelated comments. Local conversion removes code gutters/buttons and identical light/dark code variants. Preserve complete code widgets and their continuation slices, including both theme variants; trying to trim a partial theme wrapper can lose code and prevents adjacent chunks from rejoining. Do not drop meaningful accessible data tables or collapsed footnotes simply because they are hidden. Scripts and styles are removed locally. Do not invent text for diagrams or media that have no source text.
 
 The screenshot is supplied only with the first chunk; continuations use their outline and ancestor context. When supplied, consult it only when the outline leaves uncertainty about layout or which page elements belong to the article—for example, distinguishing the article body from a popup, cookie banner, advertisement, sidebar, or navigation. Use it only to classify page regions and clarify layout.
 
