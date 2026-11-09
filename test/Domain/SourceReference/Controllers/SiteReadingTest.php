@@ -154,7 +154,7 @@ it('extracts long paragraphs and code across bounded chunks without duplicating 
     Artisan::call('queue:work', ['--stop-when-empty' => true, '--tries' => 1, '--sleep' => 0]);
 
     $prompt = json_decode((string) $history[7]['request']->getBody(), true)['messages'][1]['content'][0]['text'];
-    $outline = json_decode(explode("Source outline (JSON):\n", $prompt, 2)[1], true, 512, JSON_THROW_ON_ERROR);
+    $outline = json_decode(explode("\n\n", explode("Source outline (JSON):\n", $prompt, 2)[1], 2)[0], true, 512, JSON_THROW_ON_ERROR);
     $article = collect($outline)->firstWhere('tag', 'article');
     expect(strlen($prompt))->toBeLessThan(strlen($html) / 10)
         ->and($prompt)->not->toContain('Unsent middle wording.', 'Script-only fake article', 'script-payload', 'Style-only payload', 'Comment-only fake region')
@@ -178,7 +178,7 @@ it('extracts long paragraphs and code across bounded chunks without duplicating 
         $input = json_decode((string) $request['request']->getBody(), true)['messages'][1]['content'];
         expect($input)->toHaveCount($index === 0 ? 2 : 1);
         $prompt = $input[0]['text'];
-        $outline = explode("Source outline (JSON):\n", $prompt, 2)[1];
+        $outline = explode("\n\n", explode("Source outline (JSON):\n", $prompt, 2)[1], 2)[0];
         expect(strlen($outline))->toBeLessThanOrEqual(60000);
         $boundary = json_decode(explode("\n", explode('Chunk boundary state (JSON): ', $prompt, 2)[1], 2)[0], true);
         expect($boundary)->toBe([
@@ -244,7 +244,7 @@ it('generates an article from saved HTML and screenshot fixtures with a mocked r
     expect($history)->toHaveCount(1);
     $payload = json_decode((string) $history[0]['request']->getBody(), true);
     $prompt = $payload['messages'][1]['content'][0]['text'];
-    $outline = explode("Source outline (JSON):\n", $prompt, 2)[1];
+    $outline = explode("\n\n", explode("Source outline (JSON):\n", $prompt, 2)[1], 2)[0];
     expect($prompt)->not->toContain($html)
         ->and(strlen($outline))->toBeLessThan(strlen($html))
         ->and($prompt)->toContain('Fixing the Portobello Police Station Clock', 'It was fun')
@@ -287,7 +287,7 @@ it('processes dense markup through multiple bounded outlines instead of rejectin
 
     foreach ($history as $request) {
         $prompt = json_decode((string) $request['request']->getBody(), true)['messages'][1]['content'][0]['text'];
-        expect(strlen(explode("Source outline (JSON):\n", $prompt, 2)[1]))->toBeLessThanOrEqual(60000);
+        expect(strlen(explode("\n\n", explode("Source outline (JSON):\n", $prompt, 2)[1], 2)[0]))->toBeLessThanOrEqual(60000);
     }
 
     Http::assertNothingSent();

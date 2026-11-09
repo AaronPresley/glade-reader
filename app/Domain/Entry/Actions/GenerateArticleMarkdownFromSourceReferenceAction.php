@@ -263,8 +263,7 @@ When starts_inside_article is true, an article opening tag is not needed to sele
 
 Return {"version":1,"objects":[]} if this chunk contains no article content. Do not select navigation or a footer merely because other chunks contain an article. Context is not selectable content. Chunk source bytes: {$chunk['start']}..{$chunk['end']} (end exclusive).
 Ancestor context (JSON): {$context}
-
-{$repair}
+Ancestor opening tags are context from EARLIER slices, not exact snippets of this slice. Never copy their attributes or text as regex boundaries. Only source outline snippets below are source-exact for this slice.
 
 The full HTML is kept locally and is NOT included here. Outline regions are listed in source order with id/parent relationships. These IDs describe structure only; return regexes, not IDs. Small regions have an exact html snippet. Larger regions have byte lengths, descendant tag counts, normalized first_text/last_text samples, and exact start_snippet/end_snippet boundaries. Snippets may be partial tags or text; they contain no inserted ellipses. Only the snippets are source-exact: normalized text samples must not be copied into regexes as literal boundaries.
 
@@ -288,6 +287,10 @@ Source URL: {$contentUrl}
 
 Source outline (JSON):
 {$outline}
+
+{$repair}
+
+Final boundary check: when selecting the whole slice, return ~^(?<content>.+)$~sD exactly, not a regex containing literal start/end snippets or ancestor attributes. When both boundary states are true and the outline contains only article material, the whole slice is a continuation. For a partial selection, use only exact snippets from THIS outline, escaping regex metacharacters and then JSON-escaping the pattern. Never fill in a clipped snippet from ancestor context or guess missing attributes.
 PROMPT;
     }
 }
